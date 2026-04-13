@@ -33,6 +33,8 @@ import {
   platformApiGenericTableControllerCreate,
   platformApiGenericTableControllerIndex,
   platformApiPingControllerPing,
+  platformApiSessionControllerCreate,
+  platformApiSessionControllerDelete,
   platformApiToolControllerCreate,
   platformApiToolControllerDelete,
   platformApiToolControllerIndex,
@@ -49,6 +51,7 @@ export type {
   DataSourceResponse,
   GenericTableResponse,
   PaginationMeta,
+  SessionResponse,
   ToolRequest,
   ToolResponse,
 } from './generated/types.gen.js';
@@ -128,12 +131,83 @@ export interface CreateAiAgentRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Auth — session-based (Bearer token)
+// ---------------------------------------------------------------------------
+
+export interface CreateSessionParams {
+  baseUrl: string;
+  email: string;
+  password: string;
+  tenantSlug: string;
+  /** Session duration in seconds. Default 86400 (24h). Max 2592000 (30d). */
+  expiresIn?: number;
+}
+
+export interface SessionResult {
+  /** Bearer token to pass into createPlatformApi. */
+  sessionToken: string;
+  /** ISO-8601 expiration timestamp, or null for non-expiring sessions. */
+  expiresAt: string | null;
+  tenant: { id: string; slug: string; name: string };
+  role: { id: string; name: string };
+  user: { id: string; firstName: string | null; lastName: string | null } | null;
+}
+
+/**
+ * Exchange user credentials for a Bearer session token. The returned
+ * sessionToken is what you pass into createPlatformApi.
+ *
+ * Throws on any non-2xx response (e.g. 401 invalid credentials).
+ */
+export async function createSession(
+  params: CreateSessionParams,
+): Promise<SessionResult> {
+  client.setConfig({ baseUrl: params.baseUrl.replace(/\/$/, '') });
+
+  const { data } = await platformApiSessionControllerCreate({
+    body: {
+      email: params.email,
+      password: params.password,
+      tenant_slug: params.tenantSlug,
+      ...(params.expiresIn !== undefined ? { expires_in: params.expiresIn } : {}),
+    },
+    throwOnError: true,
+  });
+
+  if (!data.session_token) {
+    throw new Error('Session created but no session_token was returned.');
+  }
+
+  return {
+    sessionToken: data.session_token,
+    expiresAt: data.expires_at ?? null,
+    tenant: data.tenant,
+    role: data.role,
+    user: data.user
+      ? {
+          id: data.user.id,
+          firstName: data.user.first_name ?? null,
+          lastName: data.user.last_name ?? null,
+        }
+      : null,
+  };
+}
+
+/**
+ * Revoke the currently-configured session token. After calling this,
+ * the api instance will reject every subsequent request with 401.
+ */
+export async function revokeSession(): Promise<void> {
+  await platformApiSessionControllerDelete({ throwOnError: true });
+}
+
+// ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
 export interface ApiConfig {
   baseUrl: string;
-  apiKey: string;
+  sessionToken: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +219,7 @@ export type PlatformApi = ReturnType<typeof createPlatformApi>;
 export function createPlatformApi(config: ApiConfig) {
   client.setConfig({
     baseUrl: config.baseUrl.replace(/\/$/, ''),
-    headers: { 'X-API-Key': config.apiKey },
+    headers: { Authorization: `Bearer ${config.sessionToken}` },
   });
 
   return {
