@@ -1,0 +1,59 @@
+{
+  "name": "@alvera/platform-sdk",
+  "version": "0.1.0",
+  "description": "Typed SDK for the Alvera platform API — manage data sources, tools, generic tables, AI agents, and action status updaters.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "fetch-spec": "curl -fsSL https://admin.alvera.ai/api/openapi -o openapi.json",
+    "codegen": "openapi-ts -i openapi.json -o src/generated -c @hey-api/client-fetch",
+    "regen": "pnpm fetch-spec && pnpm codegen",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist src/generated",
+    "prepack": "pnpm codegen && pnpm build"
+  },
+  "dependencies": {
+    "@hey-api/client-fetch": "0.13.1"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.94.1",
+    "typescript": "5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "alvera",
+    "sdk",
+    "platform",
+    "api",
+    "typescript"
+  ],
+  "license": "MIT",
+  "author": "Alvera",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aniketsinghv3/alvera-platform-sdk.git"
+  },
+  "homepage": "https://github.com/aniketsinghv3/alvera-platform-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/aniketsinghv3/alvera-platform-sdk/issues"
+  }
+}
