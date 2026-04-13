@@ -50,10 +50,10 @@
   "author": "Alvera",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aniketsinghv3/alvera-platform-sdk.git"
+    "url": "git+https://github.com/alvera-ai/platform-sdk.git"
   },
-  "homepage": "https://github.com/aniketsinghv3/alvera-platform-sdk#readme",
+  "homepage": "https://github.com/alvera-ai/platform-sdk#readme",
   "bugs": {
-    "url": "https://github.com/aniketsinghv3/alvera-platform-sdk/issues"
+    "url": "https://github.com/alvera-ai/platform-sdk/issues"
   }
 }
