@@ -1,4 +1,4 @@
-# @alvera/platform-sdk
+# @alvera-ai/platform-sdk
 
 Typed TypeScript SDK for the Alvera platform API.
 
@@ -8,15 +8,15 @@ tables, action status updaters, AI agents — with full type safety.
 ## Install
 
 ```bash
-npm install @alvera/platform-sdk
+npm install @alvera-ai/platform-sdk
 # or
-pnpm add @alvera/platform-sdk
+pnpm add @alvera-ai/platform-sdk
 ```
 
 ## Quick start
 
 ```ts
-import { createPlatformApi } from '@alvera/platform-sdk';
+import { createPlatformApi } from '@alvera-ai/platform-sdk';
 
 const api = createPlatformApi({
   baseUrl: 'https://admin.alvera.ai',

@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  id-token: write # OIDC for npm Trusted Publishing + provenance
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Verify tag matches package.json version
+        run: |
+          pkg_version=$(node -p "require('./package.json').version")
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$pkg_version" != "$tag_version" ]; then
+            echo "Tag $tag_version does not match package.json version $pkg_version"
+            exit 1
+          fi
+
+      - run: pnpm codegen
+
+      - run: pnpm typecheck
+
+      - run: pnpm build
+
+      - name: Inspect tarball contents
+        run: npm pack --dry-run
+
+      - run: npm publish --provenance --access public
