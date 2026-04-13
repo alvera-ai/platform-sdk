@@ -107,6 +107,78 @@ try {
 }
 ```
 
+## CLI
+
+The package ships a companion CLI (`alvera`) for ad-hoc calls against the
+platform API. Install the package (globally, or via `npx`) and authenticate
+once — subsequent commands reuse the stored session.
+
+```bash
+# Run without installing
+npx @alvera-ai/platform-sdk --help
+
+# Or install globally
+npm install -g @alvera-ai/platform-sdk
+alvera --help
+```
+
+### Configuration
+
+`alvera` stores state under `~/.alvera-ai/`, AWS CLI–style:
+
+| File                        | Purpose                                           |
+|-----------------------------|---------------------------------------------------|
+| `~/.alvera-ai/config`       | Per-profile defaults (base URL, tenant, email)    |
+| `~/.alvera-ai/credentials`  | Per-profile session token and expiration (0600)   |
+
+Both files are INI. The default profile is `[default]`; additional profiles
+live under `[profile <name>]` in `config` and `[<name>]` in `credentials`.
+
+Every command accepts `--profile <name>`. Environment variables
+(`ALVERA_PROFILE`, `ALVERA_BASE_URL`, `ALVERA_TENANT`, `ALVERA_EMAIL`,
+`ALVERA_PASSWORD`, `ALVERA_SESSION_TOKEN`) take precedence over file values.
+
+### Getting started
+
+```bash
+alvera configure                          # set base URL + default tenant
+alvera login --email me@acme.com --tenant acme
+alvera ping
+alvera datalakes list
+alvera tools create --body-file tool.json
+alvera logout
+```
+
+Multiple environments via profiles:
+
+```bash
+alvera --profile staging login --base-url https://admin.staging.alvera.ai --tenant acme
+alvera --profile staging datalakes list
+```
+
+### Command surface
+
+```
+alvera configure
+alvera login   [--email] [--password] [--tenant] [--base-url] [--expires-in]
+alvera logout
+alvera whoami
+alvera ping
+
+alvera datalakes              list | get <id>
+alvera data-sources           list <datalake> | create <datalake> | update <datalake> <id>
+alvera tools                  list | get <id> | create | update <id> | delete <id>
+alvera generic-tables         list <datalake> | create <datalake>
+alvera action-status-updaters list | create | update <id>
+alvera ai-agents              list <datalake> | get <datalake> <id> | create <datalake>
+                              | update <datalake> <id> | delete <datalake> <id>
+```
+
+All `create` / `update` commands require `--body '<json>'` or `--body-file <path>`
+(use `-` for stdin). A tenant positional argument is optional when the profile
+has a default tenant configured. Output is pretty-printed JSON on stdout;
+status messages and prompts go to stderr so responses stay pipeable.
+
 ## Regenerating the typed client
 
 The typed client is generated from the live OpenAPI spec at
