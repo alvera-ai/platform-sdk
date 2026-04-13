@@ -83,13 +83,19 @@ work and re-authenticate if needed.
 
 | Resource                | Operations                                  |
 |-------------------------|---------------------------------------------|
-| `ping`                  | health check                                |
-| `datalakes`             | `list`, `get`                               |
-| `dataSources`           | `list`, `create`, `update`                  |
-| `tools`                 | `list`, `get`, `create`, `update`, `delete` |
-| `genericTables`         | `list`, `create`                            |
-| `actionStatusUpdaters`  | `list`, `create`, `update`                  |
-| `aiAgents`              | `list`, `get`, `create`, `update`, `delete` |
+| `ping`                   | health check                                                                 |
+| `sessions`               | `verify`                                                                     |
+| `datasets`               | `search`                                                                     |
+| `datalakes`              | `list`, `get`, `create`                                                      |
+| `dataSources`            | `list`, `create`, `update`                                                   |
+| `tools`                  | `list`, `get`, `create`, `update`, `delete`                                  |
+| `genericTables`          | `list`, `create`                                                             |
+| `actionStatusUpdaters`   | `list`, `create`, `update`                                                   |
+| `aiAgents`               | `list`, `get`, `create`, `update`, `delete`                                  |
+| `connectedApps`          | `list`, `get`, `create`, `update`, `syncRoutes`, `resolvePage`, `updateMessageTracking` |
+| `dataActivationClients`  | `ingest`, `ingestFile`, `createUploadLink`                                   |
+| `mdm`                    | `verify`                                                                     |
+| `workflows`              | `execute`                                                                    |
 
 Tenant and datalake provisioning are performed by Alvera admins — contact your
 representative to onboard a new tenant.
@@ -165,13 +171,22 @@ alvera logout
 alvera whoami
 alvera ping
 
-alvera datalakes              list | get <id>
+alvera datalakes              list | get <id> | create
 alvera data-sources           list <datalake> | create <datalake> | update <datalake> <id>
 alvera tools                  list | get <id> | create | update <id> | delete <id>
 alvera generic-tables         list <datalake> | create <datalake>
 alvera action-status-updaters list | create | update <id>
 alvera ai-agents              list <datalake> | get <datalake> <id> | create <datalake>
                               | update <datalake> <id> | delete <datalake> <id>
+alvera sessions-verify
+alvera datasets               search <dataset> [--datalake-id] [--page] [--page-size]
+alvera connected-apps         list <datalake> | get <datalake> <id> | create <datalake>
+                              | update <datalake> <id> | sync-routes <datalake> <id>
+                              | resolve-page <slug> | update-message-tracking <slug>
+alvera data-activation-clients  ingest <slug> | ingest-file <slug> <key>
+                                | upload-link <slug> <filename> [--content-type]
+alvera mdm                    verify <datalake>
+alvera workflows              execute <workflow-slug>
 ```
 
 All `create` / `update` commands require `--body '<json>'` or `--body-file <path>`

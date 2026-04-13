@@ -25,35 +25,66 @@ import {
   platformApiAiAgentControllerIndex,
   platformApiAiAgentControllerShow,
   platformApiAiAgentControllerUpdate,
+  platformApiConnectedAppControllerResolvePage,
+  platformApiConnectedAppControllerUpdatePage,
+  platformApiConnectedAppMgmtControllerCreate,
+  platformApiConnectedAppMgmtControllerIndex,
+  platformApiConnectedAppMgmtControllerShow,
+  platformApiConnectedAppMgmtControllerSyncRoutes,
+  platformApiConnectedAppMgmtControllerUpdate,
+  platformApiDataActivationClientControllerCreateUploadLink,
+  platformApiDataActivationClientControllerIngest,
+  platformApiDataActivationClientControllerIngestFile,
+  platformApiDatalakeControllerCreate,
   platformApiDatalakeControllerIndex,
   platformApiDatalakeControllerShow,
+  platformApiDatasetControllerSearch,
   platformApiDataSourceControllerCreate,
   platformApiDataSourceControllerIndex,
   platformApiDataSourceControllerUpdate,
   platformApiGenericTableControllerCreate,
   platformApiGenericTableControllerIndex,
+  platformApiMdmControllerVerify,
   platformApiPingControllerPing,
   platformApiSessionControllerCreate,
   platformApiSessionControllerDelete,
+  platformApiSessionControllerVerify,
   platformApiToolControllerCreate,
   platformApiToolControllerDelete,
   platformApiToolControllerIndex,
   platformApiToolControllerShow,
   platformApiToolControllerUpdate,
+  platformApiWorkflowControllerExecute,
 } from './generated/sdk.gen.js';
 
 // Re-export generated types that are correct as-is
 export type {
   ActionStatusUpdaterResponse,
   AiAgentResponse,
+  ConnectedAppListResponse,
+  ConnectedAppRequestWritable,
+  ConnectedAppResponse,
+  DatalakeRequestWritable,
   DatalakeResponse,
+  DatasetSearchResponse,
   DataSourceRequest,
   DataSourceResponse,
+  ExecuteActionRequest,
+  ExecuteActionResponse,
   GenericTableResponse,
+  IngestFileRequest,
+  IngestRequest,
+  MdmVerifyRequest,
+  MdmVerifyResponse,
   PaginationMeta,
+  ResolvePageRequest,
   SessionResponse,
+  SyncRoutesResponse,
   ToolRequest,
   ToolResponse,
+  UpdatePageRequest,
+  UploadLinkRequest,
+  UploadLinkResponse,
 } from './generated/types.gen.js';
 
 // ---------------------------------------------------------------------------
@@ -216,6 +247,12 @@ export interface ApiConfig {
 
 export type PlatformApi = ReturnType<typeof createPlatformApi>;
 
+export interface DatasetSearchOptions {
+  datalakeId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export function createPlatformApi(config: ApiConfig) {
   client.setConfig({
     baseUrl: config.baseUrl.replace(/\/$/, ''),
@@ -226,6 +263,24 @@ export function createPlatformApi(config: ApiConfig) {
     ping: () =>
       platformApiPingControllerPing({ throwOnError: true }),
 
+    sessions: {
+      verify: () =>
+        platformApiSessionControllerVerify({ throwOnError: true }),
+    },
+
+    datasets: {
+      search: (dataset: string, options: DatasetSearchOptions = {}) =>
+        platformApiDatasetControllerSearch({
+          path: { dataset },
+          query: {
+            ...(options.datalakeId !== undefined ? { datalake_id: options.datalakeId } : {}),
+            ...(options.page !== undefined ? { page: options.page } : {}),
+            ...(options.pageSize !== undefined ? { page_size: options.pageSize } : {}),
+          },
+          throwOnError: true,
+        }),
+    },
+
     datalakes: {
       list: (tenantSlug: string) =>
         platformApiDatalakeControllerIndex({
@@ -235,6 +290,12 @@ export function createPlatformApi(config: ApiConfig) {
       get: (tenantSlug: string, id: string) =>
         platformApiDatalakeControllerShow({
           path: { tenant_slug: tenantSlug, id },
+          throwOnError: true,
+        }),
+      create: (tenantSlug: string, body: Record<string, unknown>) =>
+        platformApiDatalakeControllerCreate({
+          path: { tenant_slug: tenantSlug },
+          body: body as never,
           throwOnError: true,
         }),
     },
@@ -354,6 +415,97 @@ export function createPlatformApi(config: ApiConfig) {
       delete: (tenantSlug: string, datalakeSlug: string, id: string) =>
         platformApiAiAgentControllerDelete({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
+          throwOnError: true,
+        }),
+    },
+
+    connectedApps: {
+      // datalake-scoped management
+      list: (tenantSlug: string, datalakeSlug: string) =>
+        platformApiConnectedAppMgmtControllerIndex({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          throwOnError: true,
+        }),
+      get: (tenantSlug: string, datalakeSlug: string, id: string) =>
+        platformApiConnectedAppMgmtControllerShow({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
+          throwOnError: true,
+        }),
+      create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
+        platformApiConnectedAppMgmtControllerCreate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      update: (tenantSlug: string, datalakeSlug: string, id: string, body: Record<string, unknown>) =>
+        platformApiConnectedAppMgmtControllerUpdate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
+          body: body as never,
+          throwOnError: true,
+        }),
+      syncRoutes: (tenantSlug: string, datalakeSlug: string, id: string) =>
+        platformApiConnectedAppMgmtControllerSyncRoutes({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
+          throwOnError: true,
+        }),
+      // tenant-scoped runtime actions (by slug)
+      resolvePage: (tenantSlug: string, slug: string, body: Record<string, unknown>) =>
+        platformApiConnectedAppControllerResolvePage({
+          path: { tenant_slug: tenantSlug, slug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      updateMessageTracking: (
+        tenantSlug: string,
+        slug: string,
+        body: Record<string, unknown>,
+      ) =>
+        platformApiConnectedAppControllerUpdatePage({
+          path: { tenant_slug: tenantSlug, slug },
+          body: body as never,
+          throwOnError: true,
+        }),
+    },
+
+    dataActivationClients: {
+      ingest: (tenantSlug: string, slug: string, body: Record<string, unknown>) =>
+        platformApiDataActivationClientControllerIngest({
+          path: { tenant_slug: tenantSlug, slug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      ingestFile: (tenantSlug: string, slug: string, body: { key: string }) =>
+        platformApiDataActivationClientControllerIngestFile({
+          path: { tenant_slug: tenantSlug, slug },
+          body,
+          throwOnError: true,
+        }),
+      createUploadLink: (
+        tenantSlug: string,
+        slug: string,
+        body: { content_type: 'application/x-ndjson' | 'text/csv'; filename: string },
+      ) =>
+        platformApiDataActivationClientControllerCreateUploadLink({
+          path: { tenant_slug: tenantSlug, slug },
+          body,
+          throwOnError: true,
+        }),
+    },
+
+    mdm: {
+      verify: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
+        platformApiMdmControllerVerify({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          body: body as never,
+          throwOnError: true,
+        }),
+    },
+
+    workflows: {
+      execute: (tenantSlug: string, workflowSlug: string, body: Record<string, unknown>) =>
+        platformApiWorkflowControllerExecute({
+          path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
+          body: body as never,
           throwOnError: true,
         }),
     },

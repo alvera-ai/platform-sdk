@@ -36,6 +36,8 @@ jobs:
 
       - run: pnpm codegen
 
+      - run: pnpm check-coverage
+
       - run: pnpm typecheck
 
       - run: pnpm build
