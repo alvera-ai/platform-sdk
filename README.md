@@ -16,20 +16,26 @@ pnpm add @alvera-ai/platform-sdk
 ## Quick start
 
 ```ts
-import { createPlatformApi } from '@alvera-ai/platform-sdk';
+import { createPlatformApi, createSession } from '@alvera-ai/platform-sdk';
 
-const api = createPlatformApi({
-  baseUrl: 'https://admin.alvera.ai',
-  apiKey: process.env.ALVERA_API_KEY!,
+const baseUrl = 'https://admin.alvera.ai';
+
+// 1. Exchange credentials for a session token
+const session = await createSession({
+  baseUrl,
+  email: process.env.ALVERA_EMAIL!,
+  password: process.env.ALVERA_PASSWORD!,
+  tenantSlug: 'acme',
 });
 
-// Health check
+// 2. Build the API client with that token
+const api = createPlatformApi({ baseUrl, sessionToken: session.sessionToken });
+
+// 3. Use it
 await api.ping();
 
-// List datalakes for a tenant
 const { data: datalakes } = await api.datalakes.list('acme');
 
-// Create a data source
 const { data: ds } = await api.dataSources.create('acme', 'acme-health', {
   name: 'Acme EMR',
   uri: 'our-emr:acme',
@@ -38,7 +44,6 @@ const { data: ds } = await api.dataSources.create('acme', 'acme-health', {
   is_default: true,
 });
 
-// Attach a tool to the data source
 const { data: tool } = await api.tools.create('acme', {
   name: 'Acme Manual Upload',
   intent: 'data_exchange',
@@ -51,8 +56,28 @@ const { data: tool } = await api.tools.create('acme', {
 
 ## Authentication
 
-The SDK authenticates with an `X-API-Key` header. Obtain an API key for your
-tenant from your Alvera admin.
+The SDK uses **session-based** auth.
+
+1. Call `createSession({ baseUrl, email, password, tenantSlug })` with your
+   Alvera login credentials and the tenant you want to operate on.
+2. The returned `sessionToken` is a Bearer token, valid for 24 hours by
+   default (override with `expiresIn`, max 30 days).
+3. Pass the token into `createPlatformApi({ baseUrl, sessionToken })`.
+4. When done, optionally call `revokeSession()` to invalidate the token.
+
+```ts
+import { createSession, createPlatformApi, revokeSession } from '@alvera-ai/platform-sdk';
+
+const session = await createSession({
+  baseUrl, email, password, tenantSlug: 'acme', expiresIn: 3600,
+});
+const api = createPlatformApi({ baseUrl, sessionToken: session.sessionToken });
+// ... use api ...
+await revokeSession();
+```
+
+`session.expiresAt` is an ISO-8601 timestamp — check it before long-running
+work and re-authenticate if needed.
 
 ## Resources
 
