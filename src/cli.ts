@@ -483,4 +483,248 @@ aiAgents
     });
   });
 
+// -- session verify (via API) ----------------------------------------------
+program
+  .command('sessions-verify')
+  .description('Verify the current session token via the API')
+  .action(async () => {
+    await run(async () => {
+      const { api } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.sessions.verify();
+      return data;
+    });
+  });
+
+// -- datasets ---------------------------------------------------------------
+const datasets = program.command('datasets').description('Search datasets');
+
+datasets
+  .command('search <dataset>')
+  .description('Search a dataset (e.g. patient, member)')
+  .option('--datalake-id <id>', 'restrict to a specific datalake')
+  .option('--page <n>', 'page number', (v) => Number(v))
+  .option('--page-size <n>', 'results per page (max 100)', (v) => Number(v))
+  .action(async (dataset: string, opts: Record<string, unknown>) => {
+    await run(async () => {
+      const { api } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.datasets.search(dataset, {
+        datalakeId: opts.datalakeId as string | undefined,
+        page: opts.page as number | undefined,
+        pageSize: opts.pageSize as number | undefined,
+      });
+      return data;
+    });
+  });
+
+// -- datalakes create (extension) ------------------------------------------
+bodyOption(datalakes.command('create [tenant]').description('Create a datalake'))
+  .action(async (tenant: string | undefined, opts: Record<string, string>) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.datalakes.create(
+        resolveTenant(tenant, resolved.tenantSlug),
+        readBody(opts.body, opts.bodyFile),
+      );
+      return data;
+    });
+  });
+
+// -- connected-apps (datalake-scoped management + tenant-scoped actions) ---
+const connectedApps = program.command('connected-apps').description('Manage connected apps');
+
+connectedApps
+  .command('list <datalake> [tenant]')
+  .description('List connected apps in a datalake')
+  .action(async (datalake: string, tenant: string | undefined) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.connectedApps.list(resolveTenant(tenant, resolved.tenantSlug), datalake);
+      return data;
+    });
+  });
+
+connectedApps
+  .command('get <datalake> <id> [tenant]')
+  .description('Get a connected app by id')
+  .action(async (datalake: string, id: string, tenant: string | undefined) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.connectedApps.get(resolveTenant(tenant, resolved.tenantSlug), datalake, id);
+      return data;
+    });
+  });
+
+bodyOption(connectedApps.command('create <datalake> [tenant]').description('Create a connected app'))
+  .action(async (datalake: string, tenant: string | undefined, opts: Record<string, string>) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.connectedApps.create(
+        resolveTenant(tenant, resolved.tenantSlug),
+        datalake,
+        readBody(opts.body, opts.bodyFile),
+      );
+      return data;
+    });
+  });
+
+bodyOption(connectedApps.command('update <datalake> <id> [tenant]').description('Update a connected app'))
+  .action(async (datalake: string, id: string, tenant: string | undefined, opts: Record<string, string>) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.connectedApps.update(
+        resolveTenant(tenant, resolved.tenantSlug),
+        datalake,
+        id,
+        readBody(opts.body, opts.bodyFile),
+      );
+      return data;
+    });
+  });
+
+connectedApps
+  .command('sync-routes <datalake> <id> [tenant]')
+  .description('Trigger a sync of routes for a connected app')
+  .action(async (datalake: string, id: string, tenant: string | undefined) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.connectedApps.syncRoutes(
+        resolveTenant(tenant, resolved.tenantSlug),
+        datalake,
+        id,
+      );
+      return data;
+    });
+  });
+
+bodyOption(
+  connectedApps
+    .command('resolve-page <slug> [tenant]')
+    .description('Resolve a connected app page (tenant-scoped, by slug)'),
+)
+  .action(async (slug: string, tenant: string | undefined, opts: Record<string, string>) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.connectedApps.resolvePage(
+        resolveTenant(tenant, resolved.tenantSlug),
+        slug,
+        readBody(opts.body, opts.bodyFile),
+      );
+      return data;
+    });
+  });
+
+bodyOption(
+  connectedApps
+    .command('update-message-tracking <slug> [tenant]')
+    .description('Update page message tracking for a connected app'),
+)
+  .action(async (slug: string, tenant: string | undefined, opts: Record<string, string>) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.connectedApps.updateMessageTracking(
+        resolveTenant(tenant, resolved.tenantSlug),
+        slug,
+        readBody(opts.body, opts.bodyFile),
+      );
+      return data;
+    });
+  });
+
+// -- data-activation-clients -----------------------------------------------
+const dac = program.command('data-activation-clients').description('Data activation client actions');
+
+bodyOption(dac.command('ingest <slug> [tenant]').description('Ingest a JSON payload'))
+  .action(async (slug: string, tenant: string | undefined, opts: Record<string, string>) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.dataActivationClients.ingest(
+        resolveTenant(tenant, resolved.tenantSlug),
+        slug,
+        readBody(opts.body, opts.bodyFile),
+      );
+      return data;
+    });
+  });
+
+dac
+  .command('ingest-file <slug> <key> [tenant]')
+  .description('Ingest a previously uploaded file (key from upload-link)')
+  .action(async (slug: string, key: string, tenant: string | undefined) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.dataActivationClients.ingestFile(
+        resolveTenant(tenant, resolved.tenantSlug),
+        slug,
+        { key },
+      );
+      return data;
+    });
+  });
+
+dac
+  .command('upload-link <slug> <filename> [tenant]')
+  .description('Create a presigned upload link')
+  .addOption(
+    new Option('--content-type <type>', 'MIME type of the file')
+      .choices(['application/x-ndjson', 'text/csv'])
+      .default('application/x-ndjson'),
+  )
+  .action(
+    async (
+      slug: string,
+      filename: string,
+      tenant: string | undefined,
+      opts: Record<string, string>,
+    ) => {
+      await run(async () => {
+        const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+        const { data } = await api.dataActivationClients.createUploadLink(
+          resolveTenant(tenant, resolved.tenantSlug),
+          slug,
+          {
+            content_type: opts.contentType as 'application/x-ndjson' | 'text/csv',
+            filename,
+          },
+        );
+        return data;
+      });
+    },
+  );
+
+// -- mdm --------------------------------------------------------------------
+const mdm = program.command('mdm').description('Master data management');
+
+bodyOption(
+  mdm.command('verify <datalake> [tenant]').description('Fuzzy-verify an identity against MDM'),
+)
+  .action(async (datalake: string, tenant: string | undefined, opts: Record<string, string>) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.mdm.verify(
+        resolveTenant(tenant, resolved.tenantSlug),
+        datalake,
+        readBody(opts.body, opts.bodyFile),
+      );
+      return data;
+    });
+  });
+
+// -- workflows --------------------------------------------------------------
+const workflows = program.command('workflows').description('Agentic workflows');
+
+bodyOption(
+  workflows.command('execute <workflow-slug> [tenant]').description('Execute an agentic workflow'),
+)
+  .action(async (workflowSlug: string, tenant: string | undefined, opts: Record<string, string>) => {
+    await run(async () => {
+      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.workflows.execute(
+        resolveTenant(tenant, resolved.tenantSlug),
+        workflowSlug,
+        readBody(opts.body, opts.bodyFile),
+      );
+      return data;
+    });
+  });
+
 program.parseAsync();
