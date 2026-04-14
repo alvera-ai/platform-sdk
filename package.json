@@ -26,7 +26,7 @@
   },
   "scripts": {
     "fetch-spec": "curl -fsSL https://admin.alvera.ai/api/openapi -o openapi.json",
-    "codegen": "openapi-ts -i openapi.json -o src/generated -c @hey-api/client-fetch",
+    "codegen": "openapi-ts",
     "check-coverage": "node scripts/check-sdk-coverage.mjs",
     "regen": "pnpm fetch-spec && pnpm codegen && pnpm check-coverage",
     "build": "tsc",
@@ -35,8 +35,8 @@
     "prepack": "pnpm codegen && pnpm check-coverage && pnpm build"
   },
   "dependencies": {
-    "@hey-api/client-fetch": "0.13.1",
-    "commander": "14.0.3"
+    "commander": "14.0.3",
+    "valibot": "1.2.0"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.94.1",

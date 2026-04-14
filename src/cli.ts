@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { Command, Option } from 'commander';
+import { ValiError } from 'valibot';
 import { createPlatformApi, createSession, revokeSession } from './client.js';
 import {
   CONFIG_PATHS,
@@ -99,6 +100,15 @@ async function run(fn: () => Promise<unknown>): Promise<void> {
     const result = await fn();
     if (result !== undefined) out(result);
   } catch (err) {
+    if (err instanceof ValiError) {
+      const lines = err.issues.map((issue) => {
+        const path = (issue.path ?? [])
+          .map((p: { key?: unknown }) => String(p.key ?? '?'))
+          .join('.') || '(root)';
+        return `  ${path}: ${issue.message}`;
+      });
+      die(`validation failed:\n${lines.join('\n')}`);
+    }
     const message = err instanceof Error ? err.message : String(err);
     die(message);
   }
