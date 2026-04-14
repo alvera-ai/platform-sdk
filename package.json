@@ -24,6 +24,7 @@
   "engines": {
     "node": ">=20"
   },
+  "packageManager": "pnpm@10.20.0",
   "scripts": {
     "fetch-spec": "curl -fsSL https://admin.alvera.ai/api/openapi -o openapi.json",
     "codegen": "openapi-ts",
