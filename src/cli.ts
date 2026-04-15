@@ -2,9 +2,16 @@
 
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Command, Option } from 'commander';
 import { ValiError } from 'valibot';
 import { createPlatformApi, createSession, revokeSession } from './client.js';
+
+const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+const { version: packageVersion } = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
+  version: string;
+};
 import {
   CONFIG_PATHS,
   clearProfileCreds,
@@ -131,6 +138,7 @@ const program = new Command();
 program
   .name('alvera')
   .description('Alvera platform CLI')
+  .version(packageVersion, '-v, --version', 'print the installed version')
   .addOption(new Option('--profile <name>', 'config profile to use').default('default'))
   .showHelpAfterError();
 
