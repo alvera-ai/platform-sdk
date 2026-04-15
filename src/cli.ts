@@ -100,18 +100,27 @@ async function run(fn: () => Promise<unknown>): Promise<void> {
     const result = await fn();
     if (result !== undefined) out(result);
   } catch (err) {
-    if (err instanceof ValiError) {
-      const lines = err.issues.map((issue) => {
-        const path = (issue.path ?? [])
-          .map((p: { key?: unknown }) => String(p.key ?? '?'))
-          .join('.') || '(root)';
-        return `  ${path}: ${issue.message}`;
-      });
-      die(`validation failed:\n${lines.join('\n')}`);
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    die(message);
+    die(formatError(err));
   }
+}
+
+function formatError(err: unknown): string {
+  if (err instanceof ValiError) {
+    const lines = err.issues.map((issue) => {
+      const path = (issue.path ?? [])
+        .map((p: { key?: unknown }) => String(p.key ?? '?'))
+        .join('.') || '(root)';
+      return `  ${path}: ${issue.message}`;
+    });
+    return `validation failed:\n${lines.join('\n')}`;
+  }
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object') {
+    const detail = (err as { errors?: { detail?: unknown } }).errors?.detail;
+    if (typeof detail === 'string') return detail;
+    return JSON.stringify(err, null, 2);
+  }
+  return String(err);
 }
 
 // ---------------------------------------------------------------------------
