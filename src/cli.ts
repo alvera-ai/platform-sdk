@@ -688,9 +688,9 @@ dac
     });
   });
 
-dac
-  .command('upload-link <slug> <filename> [tenant]')
-  .description('Create a presigned upload link')
+datalakes
+  .command('upload-link <datalake> <filename> [tenant]')
+  .description('Create a presigned upload link for a datalake')
   .addOption(
     new Option('--content-type <type>', 'MIME type of the file')
       .choices(['application/x-ndjson', 'text/csv'])
@@ -698,16 +698,16 @@ dac
   )
   .action(
     async (
-      slug: string,
+      datalake: string,
       filename: string,
       tenant: string | undefined,
       opts: Record<string, string>,
     ) => {
       await run(async () => {
         const { api, resolved } = authedApi(program.opts<GlobalOpts>());
-        const { data } = await api.dataActivationClients.createUploadLink(
+        const { data } = await api.datalakes.createUploadLink(
           resolveTenant(tenant, resolved.tenantSlug),
-          slug,
+          datalake,
           {
             content_type: opts.contentType as 'application/x-ndjson' | 'text/csv',
             filename,

@@ -32,10 +32,10 @@ import {
   platformApiConnectedAppMgmtControllerShow,
   platformApiConnectedAppMgmtControllerSyncRoutes,
   platformApiConnectedAppMgmtControllerUpdate,
-  platformApiDataActivationClientControllerCreateUploadLink,
   platformApiDataActivationClientControllerIngest,
   platformApiDataActivationClientControllerIngestFile,
   platformApiDatalakeControllerCreate,
+  platformApiDatalakeControllerCreateUploadLink,
   platformApiDatalakeControllerIndex,
   platformApiDatalakeControllerShow,
   platformApiDatasetControllerSearch,
@@ -298,6 +298,16 @@ export function createPlatformApi(config: ApiConfig) {
           body: body as never,
           throwOnError: true,
         }),
+      createUploadLink: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        body: { content_type: 'application/x-ndjson' | 'text/csv'; filename: string },
+      ) =>
+        platformApiDatalakeControllerCreateUploadLink({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          body,
+          throwOnError: true,
+        }),
     },
 
     dataSources: {
@@ -476,16 +486,6 @@ export function createPlatformApi(config: ApiConfig) {
         }),
       ingestFile: (tenantSlug: string, slug: string, body: { key: string }) =>
         platformApiDataActivationClientControllerIngestFile({
-          path: { tenant_slug: tenantSlug, slug },
-          body,
-          throwOnError: true,
-        }),
-      createUploadLink: (
-        tenantSlug: string,
-        slug: string,
-        body: { content_type: 'application/x-ndjson' | 'text/csv'; filename: string },
-      ) =>
-        platformApiDataActivationClientControllerCreateUploadLink({
           path: { tenant_slug: tenantSlug, slug },
           body,
           throwOnError: true,
