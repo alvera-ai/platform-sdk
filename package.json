@@ -1,6 +1,6 @@
 {
   "name": "@alvera-ai/platform-sdk",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Typed SDK for the Alvera platform API — manage data sources, tools, generic tables, AI agents, and action status updaters.",
   "type": "module",
   "sideEffects": false,
@@ -27,7 +27,7 @@
   "packageManager": "pnpm@10.20.0",
   "scripts": {
     "fetch-spec": "curl -fsSL https://admin.alvera.ai/api/openapi -o openapi.json",
-    "codegen": "openapi-ts",
+    "codegen": "openapi-ts && node scripts/patch-generated.mjs",
     "check-coverage": "node scripts/check-sdk-coverage.mjs",
     "regen": "pnpm fetch-spec && pnpm codegen && pnpm check-coverage",
     "build": "tsc",
@@ -40,7 +40,7 @@
     "valibot": "1.2.0"
   },
   "devDependencies": {
-    "@hey-api/openapi-ts": "0.94.1",
+    "@hey-api/openapi-ts": "0.96.0",
     "@types/node": "22.19.15",
     "typescript": "5.9.3"
   },

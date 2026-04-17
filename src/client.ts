@@ -20,6 +20,22 @@ import {
   platformApiActionStatusUpdaterControllerCreate,
   platformApiActionStatusUpdaterControllerIndex,
   platformApiActionStatusUpdaterControllerUpdate,
+  platformApiAgenticWorkflowControllerCreate,
+  platformApiAgenticWorkflowControllerDelete,
+  platformApiAgenticWorkflowControllerIndex,
+  platformApiAgenticWorkflowControllerMetadata,
+  platformApiAgenticWorkflowControllerShow,
+  platformApiAgenticWorkflowControllerUpdate,
+  platformApiAgenticWorkflowOperationsControllerBatchLogRefresh,
+  platformApiAgenticWorkflowOperationsControllerBatchLogShow,
+  platformApiAgenticWorkflowOperationsControllerBatchLogStart,
+  platformApiAgenticWorkflowOperationsControllerBatchLogStop,
+  platformApiAgenticWorkflowOperationsControllerBatchLogsIndex,
+  platformApiAgenticWorkflowOperationsControllerExecute,
+  platformApiAgenticWorkflowOperationsControllerRunWorkflow,
+  platformApiAgenticWorkflowOperationsControllerWorkflowLogDownload,
+  platformApiAgenticWorkflowOperationsControllerWorkflowLogShow,
+  platformApiAgenticWorkflowOperationsControllerWorkflowLogsIndex,
   platformApiAiAgentControllerCreate,
   platformApiAiAgentControllerDelete,
   platformApiAiAgentControllerIndex,
@@ -32,18 +48,37 @@ import {
   platformApiConnectedAppMgmtControllerShow,
   platformApiConnectedAppMgmtControllerSyncRoutes,
   platformApiConnectedAppMgmtControllerUpdate,
+  platformApiDataActivationClientControllerCreate,
+  platformApiDataActivationClientControllerDelete,
+  platformApiDataActivationClientControllerIndex,
   platformApiDataActivationClientControllerIngest,
   platformApiDataActivationClientControllerIngestFile,
+  platformApiDataActivationClientControllerLogDownload,
+  platformApiDataActivationClientControllerLogShow,
+  platformApiDataActivationClientControllerLogsIndex,
+  platformApiDataActivationClientControllerMetadata,
+  platformApiDataActivationClientControllerRunManually,
+  platformApiDataActivationClientControllerShow,
+  platformApiDataActivationClientControllerUpdate,
   platformApiDatalakeControllerCreate,
   platformApiDatalakeControllerCreateUploadLink,
   platformApiDatalakeControllerIndex,
+  platformApiDatalakeControllerMetadata,
   platformApiDatalakeControllerShow,
+  platformApiDatasetControllerDatasetMetadata,
   platformApiDatasetControllerSearch,
   platformApiDataSourceControllerCreate,
   platformApiDataSourceControllerIndex,
   platformApiDataSourceControllerUpdate,
   platformApiGenericTableControllerCreate,
   platformApiGenericTableControllerIndex,
+  platformApiInteroperabilityContractControllerCreate,
+  platformApiInteroperabilityContractControllerDelete,
+  platformApiInteroperabilityContractControllerIndex,
+  platformApiInteroperabilityContractControllerMetadata,
+  platformApiInteroperabilityContractControllerRun,
+  platformApiInteroperabilityContractControllerShow,
+  platformApiInteroperabilityContractControllerUpdate,
   platformApiMdmControllerVerify,
   platformApiPingControllerPing,
   platformApiSessionControllerCreate,
@@ -55,30 +90,49 @@ import {
   platformApiToolControllerIndex,
   platformApiToolControllerShow,
   platformApiToolControllerUpdate,
-  platformApiWorkflowControllerExecute,
 } from './generated/sdk.gen.js';
 
 // Re-export generated types that are correct as-is
 export type {
   ActionStatusUpdaterResponse,
+  AgenticWorkflowListResponse,
+  AgenticWorkflowRequestWritable,
+  AgenticWorkflowResponse,
   AiAgentResponse,
+  BatchLogListResponse,
+  BatchLogResponse,
   ConnectedAppListResponse,
   ConnectedAppRequestWritable,
   ConnectedAppResponse,
+  DataActivationClientListResponse,
+  DataActivationClientLogListResponse,
+  DataActivationClientLogResponse,
+  DataActivationClientRequestWritable,
+  DataActivationClientResponse,
   DatalakeRequestWritable,
   DatalakeResponse,
   DatasetSearchResponse,
   DataSourceRequest,
   DataSourceResponse,
+  DownloadUrlResponse,
   ExecuteActionRequest,
   ExecuteActionResponse,
   GenericTableResponse,
   IngestFileRequest,
   IngestRequest,
+  InteroperabilityContractListResponse,
+  InteroperabilityContractRequestWritable,
+  InteroperabilityContractResponse,
+  InteroperabilityRunRequest,
+  InteroperabilityRunResponse,
   MdmVerifyRequest,
   MdmVerifyResponse,
   PaginationMeta,
   ResolvePageRequest,
+  RunManuallyRequestWritable,
+  RunManuallyResponse,
+  RunWorkflowRequest,
+  RunWorkflowResponse,
   SessionResponse,
   SyncRoutesResponse,
   TenantListResponse,
@@ -88,6 +142,8 @@ export type {
   UpdatePageRequest,
   UploadLinkRequest,
   UploadLinkResponse,
+  WorkflowLogListResponse,
+  WorkflowLogResponse,
 } from './generated/types.gen.js';
 
 // ---------------------------------------------------------------------------
@@ -256,6 +312,11 @@ export interface DatasetSearchOptions {
   pageSize?: number;
 }
 
+export interface DatasetMetadataOptions {
+  datalakeId?: string;
+  genericTableId?: string;
+}
+
 export function createPlatformApi(config: ApiConfig) {
   client.setConfig({
     baseUrl: config.baseUrl.replace(/\/$/, ''),
@@ -287,6 +348,17 @@ export function createPlatformApi(config: ApiConfig) {
           },
           throwOnError: true,
         }),
+      metadata: (datasetType: string, options: DatasetMetadataOptions = {}) =>
+        platformApiDatasetControllerDatasetMetadata({
+          path: { dataset_type: datasetType },
+          query: {
+            ...(options.datalakeId !== undefined ? { datalake_id: options.datalakeId } : {}),
+            ...(options.genericTableId !== undefined
+              ? { generic_table_id: options.genericTableId }
+              : {}),
+          },
+          throwOnError: true,
+        }),
     },
 
     datalakes: {
@@ -304,6 +376,11 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiDatalakeControllerCreate({
           path: { tenant_slug: tenantSlug },
           body: body as never,
+          throwOnError: true,
+        }),
+      metadata: (tenantSlug: string, datalakeSlug: string) =>
+        platformApiDatalakeControllerMetadata({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           throwOnError: true,
         }),
       createUploadLink: (
@@ -486,16 +563,142 @@ export function createPlatformApi(config: ApiConfig) {
     },
 
     dataActivationClients: {
-      ingest: (tenantSlug: string, slug: string, body: Record<string, unknown>) =>
-        platformApiDataActivationClientControllerIngest({
-          path: { tenant_slug: tenantSlug, slug },
+      list: (tenantSlug: string, datalakeSlug: string) =>
+        platformApiDataActivationClientControllerIndex({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          throwOnError: true,
+        }),
+      get: (tenantSlug: string, datalakeSlug: string, slug: string) =>
+        platformApiDataActivationClientControllerShow({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          throwOnError: true,
+        }),
+      create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
+        platformApiDataActivationClientControllerCreate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
           throwOnError: true,
         }),
-      ingestFile: (tenantSlug: string, slug: string, body: { key: string }) =>
+      update: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        slug: string,
+        body: Record<string, unknown>,
+      ) =>
+        platformApiDataActivationClientControllerUpdate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      delete: (tenantSlug: string, datalakeSlug: string, slug: string) =>
+        platformApiDataActivationClientControllerDelete({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          throwOnError: true,
+        }),
+      metadata: (tenantSlug: string, datalakeSlug: string, slug: string) =>
+        platformApiDataActivationClientControllerMetadata({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          throwOnError: true,
+        }),
+      runManually: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        slug: string,
+        body?: Record<string, unknown>,
+      ) =>
+        platformApiDataActivationClientControllerRunManually({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          body: (body ?? {}) as never,
+          throwOnError: true,
+        }),
+      ingest: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        slug: string,
+        body: Record<string, unknown>,
+      ) =>
+        platformApiDataActivationClientControllerIngest({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      ingestFile: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        slug: string,
+        body: { key: string },
+      ) =>
         platformApiDataActivationClientControllerIngestFile({
-          path: { tenant_slug: tenantSlug, slug },
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
           body,
+          throwOnError: true,
+        }),
+      logs: {
+        list: (tenantSlug: string, datalakeSlug: string, slug: string) =>
+          platformApiDataActivationClientControllerLogsIndex({
+            path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+            throwOnError: true,
+          }),
+        get: (tenantSlug: string, datalakeSlug: string, slug: string, id: string) =>
+          platformApiDataActivationClientControllerLogShow({
+            path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug, id },
+            throwOnError: true,
+          }),
+        download: (tenantSlug: string, datalakeSlug: string, slug: string, id: string) =>
+          platformApiDataActivationClientControllerLogDownload({
+            path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug, id },
+            throwOnError: true,
+          }),
+      },
+    },
+
+    interoperabilityContracts: {
+      list: (tenantSlug: string, datalakeSlug: string) =>
+        platformApiInteroperabilityContractControllerIndex({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          throwOnError: true,
+        }),
+      get: (tenantSlug: string, datalakeSlug: string, slug: string) =>
+        platformApiInteroperabilityContractControllerShow({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          throwOnError: true,
+        }),
+      create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
+        platformApiInteroperabilityContractControllerCreate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      update: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        slug: string,
+        body: Record<string, unknown>,
+      ) =>
+        platformApiInteroperabilityContractControllerUpdate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      delete: (tenantSlug: string, datalakeSlug: string, slug: string) =>
+        platformApiInteroperabilityContractControllerDelete({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          throwOnError: true,
+        }),
+      metadata: (tenantSlug: string, datalakeSlug: string, slug: string) =>
+        platformApiInteroperabilityContractControllerMetadata({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          throwOnError: true,
+        }),
+      run: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        slug: string,
+        body: Record<string, unknown>,
+      ) =>
+        platformApiInteroperabilityContractControllerRun({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
+          body: body as never,
           throwOnError: true,
         }),
     },
@@ -510,12 +713,104 @@ export function createPlatformApi(config: ApiConfig) {
     },
 
     workflows: {
+      // CRUD — datalake-scoped, addressed by workflow id
+      list: (tenantSlug: string, datalakeSlug: string) =>
+        platformApiAgenticWorkflowControllerIndex({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          throwOnError: true,
+        }),
+      get: (tenantSlug: string, datalakeSlug: string, id: string) =>
+        platformApiAgenticWorkflowControllerShow({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
+          throwOnError: true,
+        }),
+      create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
+        platformApiAgenticWorkflowControllerCreate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      update: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        id: string,
+        body: Record<string, unknown>,
+      ) =>
+        platformApiAgenticWorkflowControllerUpdate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
+          body: body as never,
+          throwOnError: true,
+        }),
+      delete: (tenantSlug: string, datalakeSlug: string, id: string) =>
+        platformApiAgenticWorkflowControllerDelete({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
+          throwOnError: true,
+        }),
+      metadata: (tenantSlug: string, datalakeSlug: string, id: string) =>
+        platformApiAgenticWorkflowControllerMetadata({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
+          throwOnError: true,
+        }),
+
+      // Operations — tenant-scoped, addressed by workflow slug
       execute: (tenantSlug: string, workflowSlug: string, body: Record<string, unknown>) =>
-        platformApiWorkflowControllerExecute({
+        platformApiAgenticWorkflowOperationsControllerExecute({
           path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
           body: body as never,
           throwOnError: true,
         }),
+      run: (tenantSlug: string, workflowSlug: string, body: Record<string, unknown>) =>
+        platformApiAgenticWorkflowOperationsControllerRunWorkflow({
+          path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
+          body: body as never,
+          throwOnError: true,
+        }),
+
+      batchLogs: {
+        list: (tenantSlug: string, workflowSlug: string) =>
+          platformApiAgenticWorkflowOperationsControllerBatchLogsIndex({
+            path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
+            throwOnError: true,
+          }),
+        get: (tenantSlug: string, workflowSlug: string, id: string) =>
+          platformApiAgenticWorkflowOperationsControllerBatchLogShow({
+            path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
+            throwOnError: true,
+          }),
+        start: (tenantSlug: string, workflowSlug: string, id: string) =>
+          platformApiAgenticWorkflowOperationsControllerBatchLogStart({
+            path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
+            throwOnError: true,
+          }),
+        stop: (tenantSlug: string, workflowSlug: string, id: string) =>
+          platformApiAgenticWorkflowOperationsControllerBatchLogStop({
+            path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
+            throwOnError: true,
+          }),
+        refresh: (tenantSlug: string, workflowSlug: string, id: string) =>
+          platformApiAgenticWorkflowOperationsControllerBatchLogRefresh({
+            path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
+            throwOnError: true,
+          }),
+      },
+
+      workflowLogs: {
+        list: (tenantSlug: string, workflowSlug: string) =>
+          platformApiAgenticWorkflowOperationsControllerWorkflowLogsIndex({
+            path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
+            throwOnError: true,
+          }),
+        get: (tenantSlug: string, workflowSlug: string, id: string) =>
+          platformApiAgenticWorkflowOperationsControllerWorkflowLogShow({
+            path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
+            throwOnError: true,
+          }),
+        download: (tenantSlug: string, workflowSlug: string, id: string) =>
+          platformApiAgenticWorkflowOperationsControllerWorkflowLogDownload({
+            path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
+            throwOnError: true,
+          }),
+      },
     },
   };
 }
