@@ -245,6 +245,20 @@ program
     });
   });
 
+// -- tenants ----------------------------------------------------------------
+const tenants = program.command('tenants').description('Manage tenants');
+
+tenants
+  .command('list')
+  .description('List tenants accessible to the current session')
+  .action(async () => {
+    await run(async () => {
+      const { api } = authedApi(program.opts<GlobalOpts>());
+      const { data } = await api.tenants.list();
+      return data;
+    });
+  });
+
 // ---------------------------------------------------------------------------
 // Resource commands — thin wrappers over the SDK
 // ---------------------------------------------------------------------------

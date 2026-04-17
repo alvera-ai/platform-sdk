@@ -35,6 +35,8 @@ export {
   type SessionResult,
   type SyncRoutesResponse,
   type TemplateConfig,
+  type TenantListResponse,
+  type TenantResponse,
   type ToolRequest,
   type ToolResponse,
   type UpdatePageRequest,
