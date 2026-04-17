@@ -49,6 +49,7 @@ import {
   platformApiSessionControllerCreate,
   platformApiSessionControllerDelete,
   platformApiSessionControllerVerify,
+  platformApiTenantControllerIndex,
   platformApiToolControllerCreate,
   platformApiToolControllerDelete,
   platformApiToolControllerIndex,
@@ -80,6 +81,8 @@ export type {
   ResolvePageRequest,
   SessionResponse,
   SyncRoutesResponse,
+  TenantListResponse,
+  TenantResponse,
   ToolRequest,
   ToolResponse,
   UpdatePageRequest,
@@ -266,6 +269,11 @@ export function createPlatformApi(config: ApiConfig) {
     sessions: {
       verify: () =>
         platformApiSessionControllerVerify({ throwOnError: true }),
+    },
+
+    tenants: {
+      list: () =>
+        platformApiTenantControllerIndex({ throwOnError: true }),
     },
 
     datasets: {
