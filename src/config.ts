@@ -1,12 +1,20 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import {
+  DEFAULT_ENVIRONMENT,
+  ENVIRONMENTS,
+  type EnvironmentName,
+} from './environments.generated.js';
+
+export { ENVIRONMENTS, DEFAULT_ENVIRONMENT, type EnvironmentName } from './environments.generated.js';
 
 const CONFIG_DIR = join(homedir(), '.alvera-ai');
 const CONFIG_FILE = join(CONFIG_DIR, 'config');
 const CREDS_FILE = join(CONFIG_DIR, 'credentials');
 
 export interface ProfileConfig {
+  environment?: string;
   base_url?: string;
   tenant_slug?: string;
   email?: string;
@@ -19,6 +27,7 @@ export interface ProfileCreds {
 
 export interface ResolvedProfile {
   profile: string;
+  environment: EnvironmentName;
   baseUrl: string;
   tenantSlug: string | null;
   email: string | null;
@@ -26,7 +35,20 @@ export interface ResolvedProfile {
   expiresAt: string | null;
 }
 
-const DEFAULT_BASE_URL = 'https://admin.alvera.ai';
+function isEnvironmentName(name: string): name is EnvironmentName {
+  return Object.prototype.hasOwnProperty.call(ENVIRONMENTS, name);
+}
+
+function resolveEnvironment(cfg: ProfileConfig): EnvironmentName {
+  const candidate = process.env.ALVERA_ENV ?? cfg.environment ?? DEFAULT_ENVIRONMENT;
+  if (!isEnvironmentName(candidate)) {
+    const valid = Object.keys(ENVIRONMENTS).join(', ');
+    throw new Error(
+      `Unknown environment "${candidate}". Valid environments: ${valid}.`,
+    );
+  }
+  return candidate;
+}
 
 // ---------------------------------------------------------------------------
 // Minimal INI parser / serializer. Handles [section] headers and key=value
@@ -116,10 +138,16 @@ export function readProfileCreds(profile: string): ProfileCreds {
   return (sections[credsKey(profile)] ?? {}) as ProfileCreds;
 }
 
-export function writeProfileConfig(profile: string, patch: ProfileConfig): void {
+export function writeProfileConfig(
+  profile: string,
+  patch: ProfileConfig,
+  unset: ReadonlyArray<keyof ProfileConfig> = [],
+): void {
   const sections = readIni(CONFIG_FILE);
   const key = configKey(profile);
-  sections[key] = { ...(sections[key] ?? {}), ...stripUndefined(patch as Record<string, unknown>) };
+  const merged = { ...(sections[key] ?? {}), ...stripUndefined(patch as Record<string, unknown>) };
+  for (const k of unset) delete merged[k as string];
+  sections[key] = merged;
   writeIni(CONFIG_FILE, sections, 0o600);
 }
 
@@ -153,12 +181,14 @@ function stripUndefined(obj: Record<string, unknown>): Record<string, string> {
 export function resolveProfile(profile: string): ResolvedProfile {
   const cfg = readProfileConfig(profile);
   const creds = readProfileCreds(profile);
+  const environment = resolveEnvironment(cfg);
   return {
     profile,
+    environment,
     baseUrl:
       process.env.ALVERA_BASE_URL ??
       cfg.base_url ??
-      DEFAULT_BASE_URL,
+      ENVIRONMENTS[environment].base_url,
     tenantSlug:
       process.env.ALVERA_TENANT ?? cfg.tenant_slug ?? null,
     email: process.env.ALVERA_EMAIL ?? cfg.email ?? null,

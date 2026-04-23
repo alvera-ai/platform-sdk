@@ -1,6 +1,7 @@
 node_modules
 dist
 src/generated
+src/environments.generated.ts
 *.log
 .DS_Store
 .env

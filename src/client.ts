@@ -42,7 +42,7 @@ import {
   platformApiAiAgentControllerShow,
   platformApiAiAgentControllerUpdate,
   platformApiConnectedAppControllerResolvePage,
-  platformApiConnectedAppControllerUpdatePage,
+  platformApiConnectedAppControllerUpdateMessageTracking,
   platformApiConnectedAppMgmtControllerCreate,
   platformApiConnectedAppMgmtControllerIndex,
   platformApiConnectedAppMgmtControllerShow,
@@ -53,7 +53,6 @@ import {
   platformApiDataActivationClientControllerIndex,
   platformApiDataActivationClientControllerIngest,
   platformApiDataActivationClientControllerIngestFile,
-  platformApiDataActivationClientControllerLogDownload,
   platformApiDataActivationClientControllerLogShow,
   platformApiDataActivationClientControllerLogsIndex,
   platformApiDataActivationClientControllerMetadata,
@@ -61,6 +60,7 @@ import {
   platformApiDataActivationClientControllerShow,
   platformApiDataActivationClientControllerUpdate,
   platformApiDatalakeControllerCreate,
+  platformApiDatalakeControllerCreateDownloadLink,
   platformApiDatalakeControllerCreateUploadLink,
   platformApiDatalakeControllerIndex,
   platformApiDatalakeControllerMetadata,
@@ -393,6 +393,16 @@ export function createPlatformApi(config: ApiConfig) {
           body,
           throwOnError: true,
         }),
+      createDownloadLink: (
+        tenantSlug: string,
+        datalakeSlug: string,
+        body: { bucket: string; key: string },
+      ) =>
+        platformApiDatalakeControllerCreateDownloadLink({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          body,
+          throwOnError: true,
+        }),
     },
 
     dataSources: {
@@ -555,7 +565,7 @@ export function createPlatformApi(config: ApiConfig) {
         slug: string,
         body: Record<string, unknown>,
       ) =>
-        platformApiConnectedAppControllerUpdatePage({
+        platformApiConnectedAppControllerUpdateMessageTracking({
           path: { tenant_slug: tenantSlug, slug },
           body: body as never,
           throwOnError: true,
@@ -641,11 +651,6 @@ export function createPlatformApi(config: ApiConfig) {
           }),
         get: (tenantSlug: string, datalakeSlug: string, slug: string, id: string) =>
           platformApiDataActivationClientControllerLogShow({
-            path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug, id },
-            throwOnError: true,
-          }),
-        download: (tenantSlug: string, datalakeSlug: string, slug: string, id: string) =>
-          platformApiDataActivationClientControllerLogDownload({
             path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug, id },
             throwOnError: true,
           }),
