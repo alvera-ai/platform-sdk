@@ -25,7 +25,7 @@ const after = before.replace(
 if (before === after) {
   console.error(
     'patch-generated: ArrayStyle declaration not found in pathSerializer.gen.ts — ' +
-      'has openapi-ts changed its output? Update scripts/patch-generated.mjs.',
+      'has openapi-ts changed its output? Update scripts/patch-generated.ts.',
   );
   process.exit(1);
 }
