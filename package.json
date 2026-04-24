@@ -33,7 +33,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json",
     "clean": "rm -rf dist src/generated src/environments.generated.ts",
-    "prepack": "pnpm gen-environments && pnpm codegen && pnpm check-coverage && pnpm build"
+    "prepare": "pnpm gen-environments && pnpm codegen && pnpm check-coverage && pnpm build"
   },
   "dependencies": {
     "commander": "14.0.3",
