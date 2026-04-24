@@ -4,20 +4,20 @@
   "description": "Typed SDK for the Alvera platform API — manage data sources, tools, generic tables, AI agents, and action status updaters.",
   "type": "module",
   "sideEffects": false,
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
     }
   },
   "bin": {
-    "alvera": "./dist/cli.js"
+    "alvera": "./src/cli.ts"
   },
   "files": [
-    "dist",
+    "src",
     "README.md",
     "LICENSE"
   ],
@@ -30,10 +30,9 @@
     "codegen": "openapi-ts && tsx scripts/patch-generated.ts",
     "check-coverage": "tsx scripts/check-sdk-coverage.ts",
     "regen": "pnpm gen-environments && pnpm codegen && pnpm check-coverage",
-    "build": "tsc",
     "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json",
-    "clean": "rm -rf dist src/generated src/environments.generated.ts",
-    "prepare": "pnpm gen-environments && pnpm codegen && pnpm check-coverage && pnpm build"
+    "clean": "rm -rf src/generated src/environments.generated.ts",
+    "prepare": "pnpm gen-environments && pnpm codegen && pnpm check-coverage"
   },
   "dependencies": {
     "commander": "14.0.3",
