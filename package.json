@@ -31,7 +31,7 @@
     "check-coverage": "tsx scripts/check-sdk-coverage.ts",
     "regen": "pnpm gen-environments && pnpm codegen && pnpm check-coverage",
     "build": "tsc",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json",
     "clean": "rm -rf dist src/generated src/environments.generated.ts",
     "prepack": "pnpm gen-environments && pnpm codegen && pnpm check-coverage && pnpm build"
   },
