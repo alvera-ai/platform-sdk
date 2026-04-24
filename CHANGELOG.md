@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/alvera-ai/platform-sdk/compare/v0.5.0...v0.5.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* **scripts:** relocate scripts tsconfig + annotate validator callbacks ([a4fb639](https://github.com/alvera-ai/platform-sdk/commit/a4fb639363fd75df20950256078dbc0acef9cce7))
+
 ## [0.5.0](https://github.com/alvera-ai/platform-sdk/compare/v0.4.1...v0.5.0) (2026-04-24)
 
 
