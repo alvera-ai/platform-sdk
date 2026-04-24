@@ -11,11 +11,23 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
+interface ServerSpec {
+  url?: unknown;
+  description?: unknown;
+  variables?: { key?: { default?: unknown } };
+}
+
+interface Entry {
+  readonly key: string;
+  readonly baseUrl: string;
+  readonly description: string;
+}
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const specPath = resolve(root, 'spec/openapi.yaml');
 const outPath = resolve(root, 'src/environments.generated.ts');
 
-const spec = parse(readFileSync(specPath, 'utf8'));
+const spec = parse(readFileSync(specPath, 'utf8')) as { servers?: unknown };
 const servers = spec?.servers;
 
 if (!Array.isArray(servers) || servers.length === 0) {
@@ -23,7 +35,7 @@ if (!Array.isArray(servers) || servers.length === 0) {
   process.exit(1);
 }
 
-const entries = servers.map((server, idx) => {
+const entries: Entry[] = (servers as ServerSpec[]).map((server, idx): Entry => {
   const key = server?.variables?.key?.default;
   const baseUrl = server?.url;
   const description = server?.description ?? '';
@@ -37,7 +49,7 @@ const entries = servers.map((server, idx) => {
     console.error(`gen-environments: servers[${idx}] missing url`);
     process.exit(1);
   }
-  return { key, baseUrl, description };
+  return { key, baseUrl, description: String(description) };
 });
 
 const keys = entries.map((e) => e.key);
@@ -49,10 +61,15 @@ if (dupes.length > 0) {
   process.exit(1);
 }
 
-const defaultEnv = entries.find((e) => e.key === 'prod')?.key ?? entries.at(-1).key;
+const lastEntry = entries.at(-1);
+if (!lastEntry) {
+  console.error('gen-environments: entries empty after validation (unreachable)');
+  process.exit(1);
+}
+const defaultEnv = entries.find((e) => e.key === 'prod')?.key ?? lastEntry.key;
 
 const lines = [
-  '// Generated from spec/openapi.yaml by scripts/gen-environments.mjs — do not edit.',
+  '// Generated from spec/openapi.yaml by scripts/gen-environments.ts — do not edit.',
   '',
   'export interface EnvironmentConfig {',
   '  readonly base_url: string;',

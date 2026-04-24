@@ -26,12 +26,12 @@
   },
   "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "gen-environments": "node scripts/gen-environments.mjs",
-    "codegen": "openapi-ts && node scripts/patch-generated.mjs",
-    "check-coverage": "node scripts/check-sdk-coverage.mjs",
+    "gen-environments": "tsx scripts/gen-environments.ts",
+    "codegen": "openapi-ts && tsx scripts/patch-generated.ts",
+    "check-coverage": "tsx scripts/check-sdk-coverage.ts",
     "regen": "pnpm gen-environments && pnpm codegen && pnpm check-coverage",
     "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json",
     "clean": "rm -rf dist src/generated src/environments.generated.ts",
     "prepack": "pnpm gen-environments && pnpm codegen && pnpm check-coverage && pnpm build"
   },
@@ -42,6 +42,7 @@
   "devDependencies": {
     "@hey-api/openapi-ts": "0.96.0",
     "@types/node": "^25.3.3",
+    "tsx": "^4.19.2",
     "typescript": "5.9.3",
     "yaml": "2.6.1"
   },

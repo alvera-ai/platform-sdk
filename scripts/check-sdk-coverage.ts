@@ -13,12 +13,15 @@ const sdkPath = resolve(here, '..', 'src', 'generated', 'sdk.gen.ts');
 const clientPath = resolve(here, '..', 'src', 'client.ts');
 
 // Endpoints intentionally excluded from the factory (add with justification).
-const ALLOWLIST = new Set([]);
+const ALLOWLIST = new Set<string>();
 
 const sdk = readFileSync(sdkPath, 'utf8');
 const client = readFileSync(clientPath, 'utf8');
 
-const generated = [...sdk.matchAll(/^export const (platformApi\w+)\s*=/gm)].map((m) => m[1]);
+const generated: string[] = [...sdk.matchAll(/^export const (platformApi\w+)\s*=/gm)]
+  .map((m) => m[1])
+  .filter((name): name is string => typeof name === 'string');
+
 const missing = generated.filter((name) => !ALLOWLIST.has(name) && !client.includes(name));
 
 if (missing.length === 0) {
@@ -30,7 +33,7 @@ console.error(
   `✗ client.ts is missing wrappers for ${missing.length} generated endpoint(s):\n` +
     missing.map((n) => `  - ${n}`).join('\n') +
     `\n\nAdd wrappers in src/client.ts, or (if intentionally unexposed) add the\n` +
-    `names to the ALLOWLIST in scripts/check-sdk-coverage.mjs with a comment\n` +
+    `names to the ALLOWLIST in scripts/check-sdk-coverage.ts with a comment\n` +
     `explaining why.`,
 );
 process.exit(1);
