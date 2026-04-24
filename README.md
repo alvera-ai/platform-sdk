@@ -16,9 +16,9 @@ pnpm add @alvera-ai/platform-sdk
 ## Quick start
 
 ```ts
-import { createPlatformApi, createSession } from '@alvera-ai/platform-sdk';
+import { createPlatformApi, createSession, ENVIRONMENTS } from '@alvera-ai/platform-sdk';
 
-const baseUrl = 'https://admin.alvera.ai';
+const baseUrl = ENVIRONMENTS.prod.base_url; // or ENVIRONMENTS.local / ENVIRONMENTS.demo
 
 // 1. Exchange credentials for a session token
 const session = await createSession({
@@ -78,6 +78,36 @@ await revokeSession();
 
 `session.expiresAt` is an ISO-8601 timestamp — check it before long-running
 work and re-authenticate if needed.
+
+## Environments
+
+The base URLs ship with the package, derived at build time from the
+`servers[]` block of the committed OpenAPI spec (`spec/openapi.yaml`). The
+generated map is exported as `ENVIRONMENTS`:
+
+```ts
+import { ENVIRONMENTS, DEFAULT_ENVIRONMENT } from '@alvera-ai/platform-sdk';
+
+ENVIRONMENTS.local.base_url; // http://localhost:4000
+ENVIRONMENTS.demo.base_url;  // https://platform-hh.alvera.ai
+ENVIRONMENTS.prod.base_url;  // https://app.alvera.ai
+
+DEFAULT_ENVIRONMENT; // 'prod'
+```
+
+The CLI resolves a base URL with this precedence (highest first):
+
+1. `ALVERA_BASE_URL` env var (explicit URL override — useful for tunnels /
+   ephemeral servers)
+2. `base_url` pinned in the profile (written when the user passes a custom URL
+   to `alvera configure` or `alvera login --base-url …`)
+3. `ENVIRONMENTS[env].base_url` where `env` is the first of: `--env <name>`
+   flag, `ALVERA_ENV` env var, the profile's `environment` entry, or
+   `DEFAULT_ENVIRONMENT`
+
+Adding, renaming, or removing environments happens in the platform repo (the
+`servers/0` function in `lib/platform_api/api_spec.ex`); rerun
+`pnpm regen` in the SDK to pick up the change.
 
 ## Resources
 
@@ -140,14 +170,16 @@ alvera --help
 Both files are INI. The default profile is `[default]`; additional profiles
 live under `[profile <name>]` in `config` and `[<name>]` in `credentials`.
 
-Every command accepts `--profile <name>`. Environment variables
-(`ALVERA_PROFILE`, `ALVERA_BASE_URL`, `ALVERA_TENANT`, `ALVERA_EMAIL`,
-`ALVERA_PASSWORD`, `ALVERA_SESSION_TOKEN`) take precedence over file values.
+Every command accepts `--profile <name>` and `--env <name>`. Environment
+variables (`ALVERA_PROFILE`, `ALVERA_ENV`, `ALVERA_BASE_URL`, `ALVERA_TENANT`,
+`ALVERA_EMAIL`, `ALVERA_PASSWORD`, `ALVERA_SESSION_TOKEN`) take precedence
+over file values.
 
 ### Getting started
 
 ```bash
-alvera configure                          # set base URL + default tenant
+alvera env list                           # show local / demo / prod
+alvera configure                          # pick environment + default tenant
 alvera login --email me@acme.com --tenant acme
 alvera ping
 alvera datalakes list
@@ -155,11 +187,24 @@ alvera tools create --body-file tool.json
 alvera logout
 ```
 
-Multiple environments via profiles:
+Per-command env switch (no profile edit):
 
 ```bash
-alvera --profile staging login --base-url https://admin.staging.alvera.ai --tenant acme
+alvera --env local ping
+ALVERA_ENV=demo alvera datalakes list
+```
+
+Pin an env into a profile:
+
+```bash
+alvera --profile staging env use demo
 alvera --profile staging datalakes list
+```
+
+Override the base URL for an ad-hoc host (tunnels, local branches):
+
+```bash
+ALVERA_BASE_URL=https://pr-123.preview.alvera.ai alvera ping
 ```
 
 ### Command surface
@@ -170,6 +215,7 @@ alvera login   [--email] [--password] [--tenant] [--base-url] [--expires-in]
 alvera logout
 alvera whoami
 alvera ping
+alvera env                    list | use <name>
 
 alvera datalakes              list | get <id> | create
 alvera data-sources           list <datalake> | create <datalake> | update <datalake> <id>
@@ -196,15 +242,38 @@ status messages and prompts go to stderr so responses stay pipeable.
 
 ## Regenerating the typed client
 
-The typed client is generated from the live OpenAPI spec at
-`https://admin.alvera.ai/api/openapi` using
-[`@hey-api/openapi-ts`](https://heyapi.dev/).
+The typed client is generated from `spec/openapi.yaml` using
+[`@hey-api/openapi-ts`](https://heyapi.dev/). The spec is produced by the
+platform repo and committed here, so this repo is fully self-contained at CI
+time.
+
+To pull a newer spec from the sibling platform repo:
 
 ```bash
-pnpm regen        # fetch latest spec + regenerate
-pnpm codegen      # regenerate from the pinned openapi.json
+# in the platform repo
+mix openapi.spec.yaml --spec PlatformApi.ApiSpec openapi.yaml
+git commit -am "feat(api): …"
+
+# in this repo
+cp ../platform/openapi.yaml spec/openapi.yaml
+pnpm regen        # gen-environments + codegen + check-coverage
 pnpm build        # compile to dist/
+git commit -am "chore: sync openapi spec"
 ```
+
+`pnpm regen` runs `gen-environments` (rebuilds
+`src/environments.generated.ts` from `servers[]`), then `codegen`, then
+`check-coverage`.
+
+## Releases
+
+This package uses
+[release-please](https://github.com/googleapis/release-please) plus
+[Conventional Commits](https://www.conventionalcommits.org/). Commits on
+`main` of the form `feat: …`, `fix: …`, `chore: …` feed into an automated
+"chore(main): release X.Y.Z" PR that bumps `package.json` and updates
+`CHANGELOG.md`. Merging that PR tags `vX.Y.Z`, which in turn triggers the
+existing npm publish workflow.
 
 ## License
 

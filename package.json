@@ -26,14 +26,14 @@
   },
   "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "fetch-spec": "curl -fsSL https://admin.alvera.ai/api/openapi -o openapi.json",
+    "gen-environments": "node scripts/gen-environments.mjs",
     "codegen": "openapi-ts && node scripts/patch-generated.mjs",
     "check-coverage": "node scripts/check-sdk-coverage.mjs",
-    "regen": "pnpm fetch-spec && pnpm codegen && pnpm check-coverage",
+    "regen": "pnpm gen-environments && pnpm codegen && pnpm check-coverage",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist src/generated",
-    "prepack": "pnpm codegen && pnpm check-coverage && pnpm build"
+    "clean": "rm -rf dist src/generated src/environments.generated.ts",
+    "prepack": "pnpm gen-environments && pnpm codegen && pnpm check-coverage && pnpm build"
   },
   "dependencies": {
     "commander": "14.0.3",
@@ -42,7 +42,8 @@
   "devDependencies": {
     "@hey-api/openapi-ts": "0.96.0",
     "@types/node": "22.19.15",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "yaml": "2.6.1"
   },
   "publishConfig": {
     "access": "public"
