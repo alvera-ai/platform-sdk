@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.4](https://github.com/alvera-ai/platform-sdk/compare/v0.5.3...v0.5.4) (2026-04-24)
+
+
+### Bug Fixes
+
+* ship TypeScript source instead of compiled JS (closes [#18](https://github.com/alvera-ai/platform-sdk/issues/18)) ([3ebbee4](https://github.com/alvera-ai/platform-sdk/commit/3ebbee414e616fc98abebb9d5ec4eb02c83823e2))
+
 ## [0.5.3](https://github.com/alvera-ai/platform-sdk/compare/v0.5.2...v0.5.3) (2026-04-24)
 
 
