@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/alvera-ai/platform-sdk/compare/v0.4.0...v0.4.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* **ci:** use GitHub App token for release-please ([9c8ffae](https://github.com/alvera-ai/platform-sdk/commit/9c8ffae5ea7ae76ae479fd868add957b1a62353d))
+* **ci:** use GitHub App token for release-please so tag push triggers publish ([#7](https://github.com/alvera-ai/platform-sdk/issues/7)) ([162945c](https://github.com/alvera-ai/platform-sdk/commit/162945c12a8d16bad5bf52b9936ce7d18ad89369))
+
 ## [0.4.0](https://github.com/alvera-ai/platform-sdk/compare/v0.3.0...v0.4.0) (2026-04-24)
 
 
