@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/alvera-ai/platform-sdk/compare/v0.5.2...v0.5.3) (2026-04-24)
+
+
+### Bug Fixes
+
+* rename prepack to prepare so git installs build dist/ ([33c7319](https://github.com/alvera-ai/platform-sdk/commit/33c731949fc7fbdc1e6b8a8e2372e0421a6ea3b0))
+
 ## [0.5.2](https://github.com/alvera-ai/platform-sdk/compare/v0.5.1...v0.5.2) (2026-04-24)
 
 
