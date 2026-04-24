@@ -14,12 +14,17 @@ const { version: packageVersion } = JSON.parse(readFileSync(packageJsonPath, 'ut
 };
 import {
   CONFIG_PATHS,
+  DEFAULT_ENVIRONMENT,
+  ENVIRONMENTS,
   clearProfileCreds,
   getProfileName,
+  readProfileConfig,
   resolveProfile,
   writeProfileConfig,
   writeProfileCreds,
 } from './config.js';
+
+const ENVIRONMENT_NAMES = Object.keys(ENVIRONMENTS);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -82,6 +87,7 @@ function resolveTenant(explicit: string | undefined, profileTenant: string | nul
 
 interface GlobalOpts {
   profile?: string;
+  env?: string;
 }
 
 function authedApi(opts: GlobalOpts) {
@@ -140,20 +146,60 @@ program
   .description('Alvera platform CLI')
   .version(packageVersion, '-v, --version', 'print the installed version')
   .addOption(new Option('--profile <name>', 'config profile to use').default('default'))
-  .showHelpAfterError();
+  .addOption(
+    new Option(
+      '--env <name>',
+      `environment from spec/openapi.yaml (${ENVIRONMENT_NAMES.join(', ')})`,
+    ),
+  )
+  .showHelpAfterError()
+  .hook('preAction', (thisCommand) => {
+    const env = thisCommand.optsWithGlobals<GlobalOpts>().env;
+    if (env !== undefined) process.env.ALVERA_ENV = env;
+    const candidate = process.env.ALVERA_ENV;
+    if (candidate !== undefined && !ENVIRONMENT_NAMES.includes(candidate)) {
+      die(
+        `unknown environment "${candidate}". Valid: ${ENVIRONMENT_NAMES.join(', ')}`,
+      );
+    }
+  });
 
 // -- configure --------------------------------------------------------------
 program
   .command('configure')
-  .description('Interactively set defaults (base URL, tenant) for a profile')
+  .description('Interactively set defaults (environment, tenant, email) for a profile')
   .action(async () => {
     const profile = getProfileName(program.opts<GlobalOpts>().profile);
     const current = resolveProfile(profile);
-    const baseUrl = (await prompt(`Base URL [${current.baseUrl}]: `)) || current.baseUrl;
-    const tenantSlug =
+    const currentCfg = readProfileConfig(profile);
+
+    const options = ENVIRONMENT_NAMES.map(
+      (name) => `${name} (${ENVIRONMENTS[name as keyof typeof ENVIRONMENTS].base_url})`,
+    ).join(', ');
+    const defaultChoice = currentCfg.environment ?? current.environment;
+    const envInput =
+      (await prompt(`Environment [${defaultChoice}] — one of: ${options}, or a custom URL: `)) ||
+      defaultChoice;
+
+    const patch: { environment?: string; base_url?: string; tenant_slug?: string; email?: string } = {};
+    const unset: Array<'environment' | 'base_url'> = [];
+    if (ENVIRONMENT_NAMES.includes(envInput)) {
+      patch.environment = envInput;
+      unset.push('base_url');
+    } else if (/^https?:\/\//.test(envInput)) {
+      patch.base_url = envInput;
+      unset.push('environment');
+    } else {
+      die(
+        `"${envInput}" is not a known environment or a URL. ` +
+          `Valid: ${ENVIRONMENT_NAMES.join(', ')} or http(s)://…`,
+      );
+    }
+
+    patch.tenant_slug =
       (await prompt(`Default tenant slug [${current.tenantSlug ?? ''}]: `)) || current.tenantSlug || '';
-    const email = (await prompt(`Email [${current.email ?? ''}]: `)) || current.email || '';
-    writeProfileConfig(profile, { base_url: baseUrl, tenant_slug: tenantSlug, email });
+    patch.email = (await prompt(`Email [${current.email ?? ''}]: `)) || current.email || '';
+    writeProfileConfig(profile, patch, unset);
     process.stderr.write(`Saved profile "${profile}" → ${CONFIG_PATHS.config}\n`);
   });
 
@@ -183,7 +229,13 @@ program
         tenantSlug: tenant,
         expiresIn: opts.expiresIn ? Number(opts.expiresIn) : undefined,
       });
-      writeProfileConfig(profile, { base_url: baseUrl, tenant_slug: tenant, email });
+      // Only pin base_url into the profile when the user explicitly overrode it.
+      // Otherwise the environment selection (profile.environment) keeps driving baseUrl.
+      writeProfileConfig(profile, {
+        ...(opts.baseUrl ? { base_url: baseUrl } : {}),
+        tenant_slug: tenant,
+        email,
+      });
       writeProfileCreds(profile, {
         session_token: session.sessionToken,
         expires_at: session.expiresAt ?? '',
@@ -225,6 +277,7 @@ program
     const resolved = resolveProfile(profile);
     out({
       profile: resolved.profile,
+      environment: resolved.environment,
       baseUrl: resolved.baseUrl,
       tenantSlug: resolved.tenantSlug,
       email: resolved.email,
@@ -243,6 +296,45 @@ program
       const { data } = await api.ping();
       return data;
     });
+  });
+
+// -- env --------------------------------------------------------------------
+// Environments are baked from spec/openapi.yaml servers[] at build time.
+// Default (prod / or last-in-list) is chosen in scripts/gen-environments.mjs.
+const envCmd = program
+  .command('env')
+  .description('List and switch Alvera API environments');
+
+envCmd
+  .command('list')
+  .description('List available environments (from spec/openapi.yaml)')
+  .action(() => {
+    const profile = getProfileName(program.opts<GlobalOpts>().profile);
+    const resolved = resolveProfile(profile);
+    out(
+      ENVIRONMENT_NAMES.map((name) => ({
+        name,
+        baseUrl: ENVIRONMENTS[name as keyof typeof ENVIRONMENTS].base_url,
+        description: ENVIRONMENTS[name as keyof typeof ENVIRONMENTS].description,
+        default: name === DEFAULT_ENVIRONMENT,
+        active: name === resolved.environment,
+      })),
+    );
+  });
+
+envCmd
+  .command('use <name>')
+  .description('Persist the selected environment to the profile (clears any custom base_url)')
+  .action((name: string) => {
+    if (!ENVIRONMENT_NAMES.includes(name)) {
+      die(`unknown environment "${name}". Valid: ${ENVIRONMENT_NAMES.join(', ')}`);
+    }
+    const profile = getProfileName(program.opts<GlobalOpts>().profile);
+    writeProfileConfig(profile, { environment: name }, ['base_url']);
+    process.stderr.write(
+      `Profile "${profile}" now uses environment "${name}" ` +
+        `(${ENVIRONMENTS[name as keyof typeof ENVIRONMENTS].base_url}).\n`,
+    );
   });
 
 // -- tenants ----------------------------------------------------------------
@@ -840,22 +932,6 @@ dac
     });
   });
 
-dac
-  .command('log-download <datalake> <slug> <id> [tenant]')
-  .description('Get a presigned download URL for an execution log')
-  .action(async (datalake: string, slug: string, id: string, tenant: string | undefined) => {
-    await run(async () => {
-      const { api, resolved } = authedApi(program.opts<GlobalOpts>());
-      const { data } = await api.dataActivationClients.logs.download(
-        resolveTenant(tenant, resolved.tenantSlug),
-        datalake,
-        slug,
-        id,
-      );
-      return data;
-    });
-  });
-
 datalakes
   .command('upload-link <datalake> <filename> [tenant]')
   .description('Create a presigned upload link for a datalake')
@@ -880,6 +956,28 @@ datalakes
             content_type: opts.contentType as 'application/x-ndjson' | 'text/csv',
             filename,
           },
+        );
+        return data;
+      });
+    },
+  );
+
+datalakes
+  .command('download-link <datalake> <bucket> <key> [tenant]')
+  .description('Create a presigned download URL for a datalake object')
+  .action(
+    async (
+      datalake: string,
+      bucket: string,
+      key: string,
+      tenant: string | undefined,
+    ) => {
+      await run(async () => {
+        const { api, resolved } = authedApi(program.opts<GlobalOpts>());
+        const { data } = await api.datalakes.createDownloadLink(
+          resolveTenant(tenant, resolved.tenantSlug),
+          datalake,
+          { bucket, key },
         );
         return data;
       });

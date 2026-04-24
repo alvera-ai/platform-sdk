@@ -34,9 +34,7 @@ jobs:
             exit 1
           fi
 
-      - run: pnpm codegen
-
-      - run: pnpm check-coverage
+      - run: pnpm regen
 
       - run: pnpm typecheck
 
