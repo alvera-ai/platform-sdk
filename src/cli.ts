@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
