@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.2](https://github.com/alvera-ai/platform-sdk/compare/v0.5.1...v0.5.2) (2026-04-24)
+
+
+### Bug Fixes
+
+* **tsconfig:** switch module/moduleResolution to Bundler ([6467d7c](https://github.com/alvera-ai/platform-sdk/commit/6467d7c24b78503fc776ba86ca37e174b8adeeeb))
+* **tsconfig:** switch module/moduleResolution to Bundler ([f1cfd60](https://github.com/alvera-ai/platform-sdk/commit/f1cfd60b05af0de82f9d697dd1c93ebb00165c6f))
+
 ## [0.5.1](https://github.com/alvera-ai/platform-sdk/compare/v0.5.0...v0.5.1) (2026-04-24)
 
 
