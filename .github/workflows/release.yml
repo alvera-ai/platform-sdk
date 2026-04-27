@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - fix/21-bootstrap-endpoints  # TEMP: smoke-test workflow on this branch
 
 permissions:
   id-token: write # OIDC for npm Trusted Publishing + provenance
