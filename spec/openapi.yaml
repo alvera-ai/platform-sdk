@@ -7226,6 +7226,47 @@ components:
         - updated_at
       x-struct: Elixir.Platform.OpenApiSchema.InteroperabilityContractRequest
       x-validate:
+    DatalakeMigrateResponse:
+      description: Accepted response for an enqueued datalake migration job
+      example:
+        datalake_id: 550e8400-e29b-41d4-a716-446655440000
+        enqueued_at: 2026-04-27T10:00:00.000Z
+        job_id: 42
+        status: enqueued
+      properties:
+        datalake_id:
+          description: Datalake whose schemas will be migrated
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        enqueued_at:
+          description: When the job was enqueued
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        job_id:
+          description: Oban job ID for tracking
+          type: integer
+          x-struct:
+          x-validate:
+        status:
+          description: "Job status (always 'enqueued' at creation)"
+          enum:
+            - enqueued
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - job_id
+        - datalake_id
+        - status
+        - enqueued_at
+      title: DatalakeMigrateResponse
+      type: object
+      x-struct: Elixir.PlatformApi.Schemas.DatalakeMigrateResponse
+      x-validate:
     RESTCallRequest:
       description: REST API call descriptor — HTTP method, path, body, params, and pagination context template. Reused across ActionStatusUpdater polling, data activation clients, tool protocols, OAuth token fetching, and chat completion. Request
       example:
@@ -11239,6 +11280,63 @@ paths:
       summary: Replace a data activation client
       tags:
         - Data Activation Clients
+  /api/v1/tenants/{tenant_slug}/datalakes/{datalake_slug}/migrate:
+    post:
+      callbacks: {}
+      description: |
+        Enqueues a `DatalakeMigrationWorker` Oban job that brings the datalake's
+        per-tenant database to the current schema version. Required after
+        `POST /datalakes`, which only persists the metadata row — it does NOT
+        run migrations against the per-tenant DB. Without this step, every
+        downstream resource that touches per-datalake tables
+        (`data_activation_logs`, MDM tables, dataset tables) will fail with
+        `relation … does not exist`.
+
+        Asynchronous: returns 202 Accepted as soon as the job is enqueued.
+        Callers poll `GET /datalakes/:id` and watch for `status: :ready`.
+        Idempotent at the job level — re-enqueueing on a migrated datalake
+        is a no-op once the worker completes.
+
+        The LiveView "Migrate Datalake" button calls the same migrator
+        synchronously inside the LiveView process.
+
+        Requires a tenant-scoped Bearer with membership role `admin`.
+      operationId: PlatformApi.DatalakeController.migrate
+      parameters:
+        - description: Tenant slug
+          in: path
+          name: tenant_slug
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+        - description: Datalake slug
+          in: path
+          name: datalake_slug
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatalakeMigrateResponse'
+          description: Migration job enqueued
+        '401':
+          $ref: '#/components/responses/unauthorised'
+        '404':
+          $ref: '#/components/responses/not_found'
+        '422':
+          $ref: '#/components/responses/unprocessable_entity'
+      security:
+        - api_key: []
+      summary: Enqueue datalake migrations
+      tags:
+        - Datalakes
   /api/v1/sessions/verify:
     get:
       callbacks: {}

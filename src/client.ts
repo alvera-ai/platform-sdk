@@ -72,6 +72,7 @@ import {
   platformApiDatalakeControllerCreateUploadLink,
   platformApiDatalakeControllerIndex,
   platformApiDatalakeControllerMetadata,
+  platformApiDatalakeControllerMigrate,
   platformApiDatalakeControllerShow,
   platformApiDatasetControllerDatasetMetadata,
   platformApiDatasetControllerSearch,
@@ -457,6 +458,11 @@ function _buildApi(myClient: Client) {
         }),
       metadata: (tenantSlug: string, datalakeSlug: string) =>
         platformApiDatalakeControllerMetadata({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          client: myClient, throwOnError: true,
+        }),
+      migrate: (tenantSlug: string, datalakeSlug: string) =>
+        platformApiDatalakeControllerMigrate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           client: myClient, throwOnError: true,
         }),
