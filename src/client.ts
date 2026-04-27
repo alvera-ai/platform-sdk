@@ -301,6 +301,67 @@ export async function revokeSession(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Tenantless session — for admin operations and the pre-tenant bootstrap
+// flow (sign-up → confirm → tenant create). The returned Bearer is scoped
+// to the user but does not authorize any tenant-scoped endpoint until the
+// caller mints a tenant-scoped session via POST /tenants or createSession.
+// ---------------------------------------------------------------------------
+
+export interface CreateTenantlessSessionParams {
+  baseUrl: string;
+  email: string;
+  password: string;
+  /** Session duration in seconds. Default 86400 (24h). Max 2592000 (30d). */
+  expiresIn?: number;
+}
+
+export interface TenantlessSessionResult {
+  /** Bearer token. Pass into createPlatformApi to call admin/auth endpoints. */
+  sessionToken: string;
+  /** ISO-8601 expiration timestamp, or null for non-expiring sessions. */
+  expiresAt: string | null;
+  user: { id: string; firstName: string | null; lastName: string | null } | null;
+}
+
+/**
+ * Exchange credentials for a tenantless Bearer token. Used for root-admin
+ * operations (e.g. PUT /admin/users/:id/confirm) and the pre-tenant phase
+ * of the self-bootstrap flow, where no tenant exists yet for the user.
+ *
+ * Throws on any non-2xx response (e.g. 401 invalid credentials).
+ */
+export async function createTenantlessSession(
+  params: CreateTenantlessSessionParams,
+): Promise<TenantlessSessionResult> {
+  client.setConfig({ baseUrl: params.baseUrl.replace(/\/$/, '') });
+
+  const { data } = await platformApiSessionControllerCreate({
+    body: {
+      email: params.email,
+      password: params.password,
+      ...(params.expiresIn !== undefined ? { expires_in: params.expiresIn } : {}),
+    },
+    throwOnError: true,
+  });
+
+  if (!data.session_token) {
+    throw new Error('Session created but no session_token was returned.');
+  }
+
+  return {
+    sessionToken: data.session_token,
+    expiresAt: data.expires_at ?? null,
+    user: data.user
+      ? {
+          id: data.user.id,
+          firstName: data.user.first_name ?? null,
+          lastName: data.user.last_name ?? null,
+        }
+      : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
