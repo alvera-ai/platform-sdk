@@ -18,6 +18,12 @@
 import { client } from './generated/client.gen.js';
 import {
   platformApiActionStatusUpdaterControllerCreate,
+  platformApiAdminControllerConfirmUser,
+  platformApiAuthControllerSignUp,
+  platformApiDatasetControllerCreateUserSearch,
+  platformApiInvitationControllerAccept,
+  platformApiInvitationControllerCreate,
+  platformApiTenantControllerCreate,
   platformApiActionStatusUpdaterControllerIndex,
   platformApiActionStatusUpdaterControllerUpdate,
   platformApiAgenticWorkflowControllerCreate,
@@ -267,12 +273,15 @@ export async function createSession(
   if (!data.session_token) {
     throw new Error('Session created but no session_token was returned.');
   }
+  if (!data.tenant || !data.role) {
+    throw new Error('Session created but tenant/role missing from response.');
+  }
 
   return {
     sessionToken: data.session_token,
     expiresAt: data.expires_at ?? null,
-    tenant: data.tenant,
-    role: data.role,
+    tenant: { id: data.tenant.id, slug: data.tenant.slug, name: data.tenant.name },
+    role: { id: data.role.id, name: data.role.name },
     user: data.user
       ? {
           id: data.user.id,
@@ -332,9 +341,32 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiSessionControllerVerify({ throwOnError: true }),
     },
 
+    auth: {
+      signUp: (body: Record<string, unknown>) =>
+        platformApiAuthControllerSignUp({ body: body as never, throwOnError: true }),
+    },
+
+    admin: {
+      confirmUser: (id: string) =>
+        platformApiAdminControllerConfirmUser({ path: { id }, throwOnError: true }),
+    },
+
     tenants: {
       list: () =>
         platformApiTenantControllerIndex({ throwOnError: true }),
+      create: (body: Record<string, unknown>) =>
+        platformApiTenantControllerCreate({ body: body as never, throwOnError: true }),
+    },
+
+    invitations: {
+      create: (tenantSlug: string, body: Record<string, unknown>) =>
+        platformApiInvitationControllerCreate({
+          path: { tenant_slug: tenantSlug },
+          body: body as never,
+          throwOnError: true,
+        }),
+      accept: (id: string) =>
+        platformApiInvitationControllerAccept({ path: { id }, throwOnError: true }),
     },
 
     datasets: {
@@ -357,6 +389,17 @@ export function createPlatformApi(config: ApiConfig) {
               ? { generic_table_id: options.genericTableId }
               : {}),
           },
+          throwOnError: true,
+        }),
+      createUserSearch: (
+        dataset: string,
+        body: Record<string, unknown>,
+        options: { datalakeId?: string } = {},
+      ) =>
+        platformApiDatasetControllerCreateUserSearch({
+          path: { dataset },
+          query: options.datalakeId !== undefined ? { datalake_id: options.datalakeId } : {},
+          body: body as never,
           throwOnError: true,
         }),
     },

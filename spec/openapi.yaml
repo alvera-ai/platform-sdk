@@ -65,6 +65,95 @@ components:
         for validation errors (`/name`, `/template_config/body`), or into the
         failing contract field for pipeline errors.
   schemas:
+    UserSearchResponse:
+      description: |
+        User SQL search resource. Created via `POST /datasets/:dataset/user-searches`
+        with a `WHERE`-clause body in `search_query`; the platform executes
+        `INSERT INTO search_results SELECT … WHERE <body>` to populate
+        `search_results` and reports back `status`, `results_count`, and
+        `error_message`.
+
+        UserSearch carries no `data_access_mode` of its own — the capability check
+        runs at query time via `Platform.RegulatedDatalakeRepo.prepare_query/3`,
+        which reads the ambient session and raises 403 when the ceiling is
+        insufficient. ExOpenApiUtils derives `UserSearchRequest` (writeable subset)
+        and `UserSearchResponse` (full readable shape) from this declaration via
+        the readOnly/writeOnly markers on each property.
+      example:
+        error_message: ''
+        generic_table_id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        resource_type: ''
+        results_count: 0
+        search_query: a
+        status: new
+      properties:
+        error_message:
+          description: SQL execution error message when status is `error`; null otherwise
+          nullable: true
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        generic_table_id:
+          description: Generic-table identifier. Required when the dataset is a generic table; must be omitted otherwise.
+          format: uuid
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+        id:
+          description: User search ID
+          format: uuid
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        resource_type:
+          description: Resource type the search runs against (e.g. "patient", "appointment", "generic_table"). On `POST /datasets/:dataset/user-searches` this is taken from the URL path; on the response it echoes that value.
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        results_count:
+          description: Number of rows the SQL search matched
+          nullable: true
+          readOnly: true
+          type: integer
+          x-struct:
+          x-validate:
+        search_query:
+          description: SQL `WHERE`-clause body. The platform wraps it in `INSERT INTO search_results SELECT … WHERE <body>`. Reference the table aliases exposed by the dataset's base decomposed query (see `GET /datasets/:dataset_type/metadata`).
+          minLength: 1
+          type: string
+          x-struct:
+          x-validate:
+        status:
+          description: Search execution status
+          enum:
+            - new
+            - in_progress
+            - completed
+            - error
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+      readOnly: true
+      required:
+        - search_query
+      title: UserSearchResponse
+      type: object
+      x-order:
+        - id
+        - resource_type
+        - search_query
+        - status
+        - results_count
+        - error_message
+        - generic_table_id
+      x-struct: Elixir.Platform.OpenApiSchema.UserSearchResponse
+      x-validate:
     ManualUploadRequest:
       description: Manual upload marker tool — no configuration fields, just an identity marker for manual ingestion workflows. Request
       example: {}
@@ -553,6 +642,44 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.DataActivationClientListResponse
       x-validate:
+    MembershipResponse:
+      description: Tenant membership — binds a user to a tenant with a role.
+      example:
+        id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        role: member
+        tenant:
+      properties:
+        id:
+          description: Membership ID
+          format: uuid
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        role:
+          description: Tenant-membership role.
+          enum:
+            - member
+            - researcher
+            - admin
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        tenant:
+          $ref: '#/components/schemas/TenantResponse'
+      readOnly: true
+      required:
+        - id
+        - role
+      title: MembershipResponse
+      type: object
+      x-order:
+        - id
+        - role
+        - tenant
+      x-struct: Elixir.Platform.OpenApiSchema.MembershipResponse
+      x-validate:
     EmailCallRequest:
       description: Email tool-call config — Liquid-templated recipient, subject, and body. Request
       example:
@@ -900,12 +1027,23 @@ components:
       x-struct: Elixir.Platform.OpenApiSchema.CloudflarePagesConfigResponse
       x-validate:
     TenantResponse:
-      description: Lean tenant reference — id, slug, and name only
+      description: |
+        Tenant resource. The auto-generated `TenantRequest` shape carries only
+        the writable fields (`name`, `description`); `TenantResponse` returns the
+        full read surface (`id`, `slug`, `name`, `description`).
       example:
+        description: ''
         id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
-        name: ''
+        name: a
         slug: ''
       properties:
+        description:
+          description: Optional free-text description; max 1000 chars.
+          maxLength: 1000
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
         id:
           description: Tenant ID
           format: uuid
@@ -914,13 +1052,14 @@ components:
           x-struct:
           x-validate:
         name:
-          description: Human-readable tenant name
-          readOnly: true
+          description: Human-readable tenant name. Required on create; max 160 chars.
+          maxLength: 160
+          minLength: 1
           type: string
           x-struct:
           x-validate:
         slug:
-          description: URL-friendly tenant slug
+          description: URL-friendly tenant slug — derived from `name` by the server.
           readOnly: true
           type: string
           x-struct:
@@ -936,6 +1075,7 @@ components:
         - id
         - slug
         - name
+        - description
       x-struct: Elixir.Platform.OpenApiSchema.TenantResponse
       x-validate:
     ActionSMSCallRequest:
@@ -1577,6 +1717,52 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.DataActivationClientSQLQueryCallResponse
       x-validate:
+    UserResponse:
+      description: Lean user reference — id, email, and names
+      example:
+        email: ''
+        first_name: ''
+        id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        last_name: ''
+      properties:
+        email:
+          description: User email
+          format: email
+          type: string
+          x-struct:
+          x-validate:
+        first_name:
+          description: First name
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+        id:
+          description: User ID
+          format: uuid
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        last_name:
+          description: Last name
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+      readOnly: true
+      required:
+        - id
+        - email
+      title: UserResponse
+      type: object
+      x-order:
+        - id
+        - email
+        - first_name
+        - last_name
+      x-struct: Elixir.Platform.OpenApiSchema.UserResponse
+      x-validate:
     ExecuteActionRequest:
       description: Request body for executing a workflow action for a dataset record
       properties:
@@ -1732,7 +1918,7 @@ components:
           x-struct:
           x-validate:
         stage:
-          description: '`completed` = row passed filter, transform, and mdm_input. `filtered` = skipped by data_activation_client_filter (transform/mdm_input not run).'
+          description: '`completed` = row passed filter, transform, and mdm_input. `filtered` = skipped by filter_template (transform/mdm_input not run).'
           enum:
             - completed
             - filtered
@@ -2228,9 +2414,9 @@ components:
     InteroperabilityContractResponse:
       description: 'Declarative execution spec binding a `(datalake, resource_type)` pair to the ingestion pipeline: filter → transform → mdm_input → resolve → upsert.'
       example:
-        data_activation_client_filter: ''
         datalake_id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
         description: ''
+        filter_template: ''
         generic_table_id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
         id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
         inserted_at: 2020-04-20T16:20:00Z
@@ -2240,12 +2426,6 @@ components:
         type: system
         updated_at: 2020-04-20T16:20:00Z
       properties:
-        data_activation_client_filter:
-          description: Liquid filter body. Renders to "true" to skip the row at ingest time; nil or empty = no filter.
-          nullable: true
-          type: string
-          x-struct:
-          x-validate:
         datalake_id:
           description: Owning datalake ID (matches `:datalake_slug` path segment). Server-set on create; request bodies should omit this — it is taken from the path.
           format: uuid
@@ -2255,6 +2435,12 @@ components:
           x-validate:
         description:
           description: Optional description
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+        filter_template:
+          description: Liquid filter body. Renders to "true" to skip the row at ingest time; nil or empty = no filter.
           nullable: true
           type: string
           x-struct:
@@ -2322,7 +2508,7 @@ components:
         - description
         - type
         - resource_type
-        - data_activation_client_filter
+        - filter_template
         - generic_table_id
         - datalake_id
         - inserted_at
@@ -2461,6 +2647,51 @@ components:
       title: UpdatePageRequest
       type: object
       x-struct: Elixir.PlatformApi.Schemas.UpdatePageRequest
+      x-validate:
+    InvitationResponse:
+      description: Pending tenant invitation — resolved into a Membership on accept.
+      example:
+        email: ''
+        id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        role: member
+        tenant:
+      properties:
+        email:
+          description: Recipient email address. Must be unique per tenant.
+          format: email
+          type: string
+          x-struct:
+          x-validate:
+        id:
+          description: Invitation ID
+          format: uuid
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        role:
+          description: Tenant-membership role to grant on acceptance. NOT the platform-wide `User.role` enum — `tenant_admin` here is a tenant-scoped admin, not a platform admin.
+          enum:
+            - member
+            - researcher
+            - admin
+          type: string
+          x-struct:
+          x-validate:
+        tenant:
+          $ref: '#/components/schemas/TenantResponse'
+      readOnly: true
+      required:
+        - email
+        - role
+      title: InvitationResponse
+      type: object
+      x-order:
+        - id
+        - email
+        - role
+        - tenant
+      x-struct: Elixir.Platform.OpenApiSchema.InvitationResponse
       x-validate:
     ToolRequest:
       description: Tool — a configurable capability reference for external services. Request
@@ -3962,49 +4193,6 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.GenericTableListResponse
       x-validate:
-    SessionRequest:
-      description: |
-        Exchange user credentials for a Bearer session token.
-        For M2M authentication, use `X-API-Key` header directly instead.
-      example:
-        email: user@example.com
-        expires_in: 86400
-        password: secret123
-        tenant_slug: acme-health
-      properties:
-        email:
-          description: User email address
-          format: email
-          type: string
-          x-struct:
-          x-validate:
-        expires_in:
-          description: 'Session duration in seconds. Default: 86400 (24h). Maximum: 2592000 (30 days).'
-          maximum: 2592000
-          minimum: 60
-          nullable: true
-          type: integer
-          x-struct:
-          x-validate:
-        password:
-          description: User password
-          minLength: 1
-          type: string
-          x-struct:
-          x-validate:
-        tenant_slug:
-          description: Tenant slug to create session for
-          type: string
-          x-struct:
-          x-validate:
-      required:
-        - email
-        - password
-        - tenant_slug
-      title: SessionRequest
-      type: object
-      x-struct: Elixir.PlatformApi.Schemas.SessionRequest
-      x-validate:
     ActionRESTCallRequest:
       allOf:
         - $ref: '#/components/schemas/RESTCallRequest'
@@ -4742,17 +4930,38 @@ components:
       x-struct: Elixir.Platform.OpenApiSchema.DataActivationClientS3CallRequest
       x-validate:
     DatasetSearchResponse:
-      description: Paginated dataset search results
+      description: |
+        Double-paginated dataset search results scoped to a `UserSearch`. The
+        `meta` object carries two `Flop.Meta`-shaped sub-objects:
+
+        - `sql` — outer page over `search_results` (up to 1000 dataset IDs per
+          chunk; cap dictated by Postgres' `WHERE id IN (^ids)` plan). `null`
+          when the request was not bound to a `user_search_id`.
+        - `flop` — inner Flop page over the resource (default 20 rows).
       example:
         data:
           - id: 018f1234-5678-7abc-def0-123456789abc
             name: John Doe
             status: active
         meta:
-          page: 1
-          page_size: 20
-          total_count: 42
-          total_pages: 3
+          flop:
+            page: 1
+            page_size: 20
+            total_count: 1000
+            total_pages: 50
+          sql:
+            page: 1
+            page_size: 1000
+            total_count: 42000
+            total_pages: 42
+        user_search:
+          error_message:
+          generic_table_id:
+          id: 018f1234-5678-7abc-def0-123456789abc
+          resource_type: patient
+          results_count: 42000
+          search_query: "gender = 'male'"
+          status: completed
       properties:
         data:
           description: Array of dataset records
@@ -4765,13 +4974,65 @@ components:
           x-struct:
           x-validate:
         meta:
-          $ref: '#/components/schemas/PaginationMeta'
+          description: Two-tier pagination metadata
+          properties:
+            flop:
+              $ref: '#/components/schemas/PaginationMeta'
+            sql:
+              description: Outer page over search_results — null when no UserSearch bound
+              oneOf:
+                - $ref: '#/components/schemas/PaginationMeta'
+                - type: 'null'
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          required:
+            - flop
+          type: object
+          x-struct:
+          x-validate:
+        user_search:
+          $ref: '#/components/schemas/UserSearchResponse'
       required:
+        - user_search
         - data
         - meta
       title: DatasetSearchResponse
       type: object
       x-struct: Elixir.PlatformApi.Schemas.DatasetSearchResponse
+      x-validate:
+    InvitationRequest:
+      description: Pending tenant invitation — resolved into a Membership on accept. Request
+      example:
+        email: ''
+        role: member
+      properties:
+        email:
+          description: Recipient email address. Must be unique per tenant.
+          format: email
+          type: string
+          x-struct:
+          x-validate:
+        role:
+          description: Tenant-membership role to grant on acceptance. NOT the platform-wide `User.role` enum — `tenant_admin` here is a tenant-scoped admin, not a platform admin.
+          enum:
+            - member
+            - researcher
+            - admin
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - email
+        - role
+      title: InvitationRequest
+      type: object
+      writeOnly: true
+      x-order:
+        - email
+        - role
+      x-struct: Elixir.Platform.OpenApiSchema.InvitationRequest
       x-validate:
     ActionAWSLambdaCallResponse:
       allOf:
@@ -5505,7 +5766,7 @@ components:
                 description: Locates the offending field.
                 properties:
                   pointer:
-                    description: RFC 6901 JSON Pointer. For validation errors it points into the request body (`/name`, `/items`); for `/run` pipeline errors it points into the contract field whose template produced the failure (`/template_config/body`, `/mdm_input_config/body`, `/data_activation_client_filter`).
+                    description: RFC 6901 JSON Pointer. For validation errors it points into the request body (`/name`, `/items`); for `/run` pipeline errors it points into the contract field whose template produced the failure (`/template_config/body`, `/mdm_input_config/body`, `/filter_template`).
                     example: /name
                     type: string
                     x-struct:
@@ -5680,6 +5941,48 @@ components:
       title: ToolSNSResponse
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.ToolSNSResponse
+      x-validate:
+    UserSearchRequest:
+      description: |-
+        User SQL search resource. Created via `POST /datasets/:dataset/user-searches`
+        with a `WHERE`-clause body in `search_query`; the platform executes
+        `INSERT INTO search_results SELECT … WHERE <body>` to populate
+        `search_results` and reports back `status`, `results_count`, and
+        `error_message`.
+
+        UserSearch carries no `data_access_mode` of its own — the capability check
+        runs at query time via `Platform.RegulatedDatalakeRepo.prepare_query/3`,
+        which reads the ambient session and raises 403 when the ceiling is
+        insufficient. ExOpenApiUtils derives `UserSearchRequest` (writeable subset)
+        and `UserSearchResponse` (full readable shape) from this declaration via
+        the readOnly/writeOnly markers on each property.
+         Request
+      example:
+        generic_table_id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        search_query: a
+      properties:
+        generic_table_id:
+          description: Generic-table identifier. Required when the dataset is a generic table; must be omitted otherwise.
+          format: uuid
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+        search_query:
+          description: SQL `WHERE`-clause body. The platform wraps it in `INSERT INTO search_results SELECT … WHERE <body>`. Reference the table aliases exposed by the dataset's base decomposed query (see `GET /datasets/:dataset_type/metadata`).
+          minLength: 1
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - search_query
+      title: UserSearchRequest
+      type: object
+      writeOnly: true
+      x-order:
+        - search_query
+        - generic_table_id
+      x-struct: Elixir.Platform.OpenApiSchema.UserSearchRequest
       x-validate:
     SQLQueryCallResponse:
       description: SQL query descriptor — Liquid-templated query body.
@@ -6159,126 +6462,87 @@ components:
       x-struct: Elixir.Platform.OpenApiSchema.ToolEmailRequest
       x-validate:
     SessionResponse:
-      description: Session token and metadata returned after successful authentication
+      description: |
+        Authenticated session — issued at sign-in (`POST /api/v1/sessions`) or
+        derived from an `X-API-Key` header. The `session_token` field carries the
+        plaintext Bearer on creation responses and is null on verify responses.
+        `tenant`, `role`, and `user` are nullable for tenant-less / pre-tenant
+        sessions; `api_key` is populated for M2M sessions only.
+      example:
+        api_key:
+        data_access_mode: regulated
+        expires_at: 2020-04-20T16:20:00Z
+        id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        role:
+        session_token: ''
+        tenant:
+        type: user
+        user:
       properties:
         api_key:
-          description: API key info (M2M sessions only)
-          nullable: true
-          properties:
-            id:
-              format: uuid
-              type: string
-              x-struct:
-              x-validate:
-            last_four:
-              type: string
-              x-struct:
-              x-validate:
-            name:
-              type: string
-              x-struct:
-              x-validate:
-          required:
-            - id
-            - name
-            - last_four
-          type: object
+          $ref: '#/components/schemas/ApiKeyResponse'
+        data_access_mode:
+          description: Capability ceiling for the session. `:regulated` permits PHI/PII reads; `:unregulated` is tokenized/redacted. Set at creation time from membership role (researcher locked to `:unregulated`); cannot be widened post-creation.
+          enum:
+            - regulated
+            - unregulated
+          type: string
           x-struct:
           x-validate:
         expires_at:
           description: Expiration timestamp (null for non-expiring M2M sessions)
           format: date-time
           nullable: true
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        id:
+          description: Session ID
+          format: uuid
+          readOnly: true
           type: string
           x-struct:
           x-validate:
         role:
-          description: Assumed role
-          properties:
-            id:
-              format: uuid
-              type: string
-              x-struct:
-              x-validate:
-            name:
-              type: string
-              x-struct:
-              x-validate:
-          required:
-            - id
-            - name
-          type: object
-          x-struct:
-          x-validate:
+          $ref: '#/components/schemas/RoleResponse'
         session_token:
-          description: Bearer token for subsequent API requests. Returned on create, null on verify (token is not re-exposed).
+          description: Plaintext Bearer token. Returned only on creation; null on verify (token is not re-exposed).
           nullable: true
+          readOnly: true
           type: string
           x-struct:
           x-validate:
         tenant:
-          description: Authenticated tenant
-          properties:
-            id:
-              format: uuid
-              type: string
-              x-struct:
-              x-validate:
-            name:
-              type: string
-              x-struct:
-              x-validate:
-            slug:
-              type: string
-              x-struct:
-              x-validate:
-          required:
-            - id
-            - name
-            - slug
-          type: object
-          x-struct:
-          x-validate:
+          $ref: '#/components/schemas/TenantResponse'
         type:
           description: Session type
           enum:
             - user
             - api
+          readOnly: true
           type: string
           x-struct:
           x-validate:
         user:
-          description: User info (human sessions only)
-          nullable: true
-          properties:
-            first_name:
-              nullable: true
-              type: string
-              x-struct:
-              x-validate:
-            id:
-              format: uuid
-              type: string
-              x-struct:
-              x-validate:
-            last_name:
-              nullable: true
-              type: string
-              x-struct:
-              x-validate:
-          required:
-            - id
-          type: object
-          x-struct:
-          x-validate:
+          $ref: '#/components/schemas/UserResponse'
+      readOnly: true
       required:
-        - session_token
         - type
-        - tenant
-        - role
+        - data_access_mode
       title: SessionResponse
       type: object
-      x-struct: Elixir.PlatformApi.Schemas.SessionResponse
+      x-order:
+        - id
+        - type
+        - session_token
+        - expires_at
+        - tenant
+        - role
+        - user
+        - api_key
+        - data_access_mode
+      x-struct: Elixir.Platform.OpenApiSchema.SessionResponse
       x-validate:
     ActionStatusUpdaterCloudWatchQueryRequest:
       allOf:
@@ -6659,6 +6923,32 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.DataSourceListResponse
       x-validate:
+    OuterPagination:
+      additionalProperties: false
+      description: Outer page over the cached search_results table — chunks of up to 1 000 dataset IDs.
+      example:
+        page: 1
+        page_size: 1000
+      properties:
+        page:
+          default: 1
+          example: 1
+          minimum: 1
+          type: integer
+          x-struct:
+          x-validate:
+        page_size:
+          default: 1000
+          example: 1000
+          maximum: 1000
+          minimum: 1
+          type: integer
+          x-struct:
+          x-validate:
+      title: OuterPagination
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.OuterPagination
+      x-validate:
     ActionManualUploadCallRequest:
       allOf:
         - $ref: '#/components/schemas/ManualUploadCallRequest'
@@ -6835,8 +7125,8 @@ components:
     InteroperabilityContractRequest:
       description: 'Declarative execution spec binding a `(datalake, resource_type)` pair to the ingestion pipeline: filter → transform → mdm_input → resolve → upsert. Request'
       example:
-        data_activation_client_filter: ''
         description: ''
+        filter_template: ''
         generic_table_id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
         id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
         inserted_at: 2020-04-20T16:20:00Z
@@ -6848,14 +7138,14 @@ components:
         type: system
         updated_at: 2020-04-20T16:20:00Z
       properties:
-        data_activation_client_filter:
-          description: Liquid filter body. Renders to "true" to skip the row at ingest time; nil or empty = no filter.
+        description:
+          description: Optional description
           nullable: true
           type: string
           x-struct:
           x-validate:
-        description:
-          description: Optional description
+        filter_template:
+          description: Liquid filter body. Renders to "true" to skip the row at ingest time; nil or empty = no filter.
           nullable: true
           type: string
           x-struct:
@@ -6928,7 +7218,7 @@ components:
         - description
         - type
         - resource_type
-        - data_activation_client_filter
+        - filter_template
         - template_config
         - mdm_input_config
         - generic_table_id
@@ -8124,6 +8414,55 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.ToolSQSResponse
       x-validate:
+    ApiKeyResponse:
+      description: Lean API key reference — id, name, last_four, and data_access_mode (no plaintext)
+      example:
+        data_access_mode: regulated
+        id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        last_four: ''
+        name: ''
+      properties:
+        data_access_mode:
+          description: Capability ceiling baked into the key. Sessions derived from this key inherit this value. `:regulated` permits PHI/PII reads; `:unregulated` is tokenized/redacted. Cannot be widened post-creation — revoke + re-mint instead.
+          enum:
+            - regulated
+            - unregulated
+          type: string
+          x-struct:
+          x-validate:
+        id:
+          description: API key ID
+          format: uuid
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        last_four:
+          description: Last 4 characters of the key
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        name:
+          description: API key name
+          type: string
+          x-struct:
+          x-validate:
+      readOnly: true
+      required:
+        - id
+        - name
+        - last_four
+        - data_access_mode
+      title: ApiKeyResponse
+      type: object
+      x-order:
+        - id
+        - name
+        - last_four
+        - data_access_mode
+      x-struct: Elixir.Platform.OpenApiSchema.ApiKeyResponse
+      x-validate:
     SyncRoutesResponse:
       description: Accepted response for an enqueued route sync job
       example:
@@ -8450,6 +8789,47 @@ components:
         - base_path
         - base_path_template
       x-struct: Elixir.Platform.OpenApiSchema.SFTPRequest
+      x-validate:
+    InnerSearch:
+      additionalProperties: false
+      description: "Inner search input over the resource. Defaults: page 1, page_size 20, order_direction asc. All keys optional; absent values fall through to the resource's `Flop.Schema` defaults."
+      example:
+        global_search: Acme
+        order_direction: desc
+        page: 1
+        page_size: 20
+      properties:
+        global_search:
+          description: Single text-search value applied across the schema's `:global_search` compound (ILIKE-OR over its underlying string fields). Empty / absent → no filter.
+          type: string
+          x-struct:
+          x-validate:
+        order_direction:
+          description: Sort direction for the implicit `:global_search` sort key. `asc` or `desc` only — no per-field overrides at this layer. Omit to fall through to the resource's `Flop.Schema` default (no `order_by` injection).
+          enum:
+            - asc
+            - desc
+          type: string
+          x-struct:
+          x-validate:
+        page:
+          default: 1
+          example: 1
+          minimum: 1
+          type: integer
+          x-struct:
+          x-validate:
+        page_size:
+          default: 20
+          example: 20
+          maximum: 100
+          minimum: 1
+          type: integer
+          x-struct:
+          x-validate:
+      title: InnerSearch
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.InnerSearch
       x-validate:
     DatalakeListResponse:
       description: Paginated list of datalakes
@@ -8928,6 +9308,40 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.InteroperabilityContractListResponse
       x-validate:
+    TenantRequest:
+      description: |-
+        Tenant resource. The auto-generated `TenantRequest` shape carries only
+        the writable fields (`name`, `description`); `TenantResponse` returns the
+        full read surface (`id`, `slug`, `name`, `description`).
+         Request
+      example:
+        description: ''
+        name: a
+      properties:
+        description:
+          description: Optional free-text description; max 1000 chars.
+          maxLength: 1000
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+        name:
+          description: Human-readable tenant name. Required on create; max 160 chars.
+          maxLength: 160
+          minLength: 1
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - name
+      title: TenantRequest
+      type: object
+      writeOnly: true
+      x-order:
+        - name
+        - description
+      x-struct: Elixir.Platform.OpenApiSchema.TenantRequest
+      x-validate:
     CloudflarePagesConfigRequest:
       description: Cloudflare Pages deployment configuration for managed Connected Apps Request
       example:
@@ -9349,6 +9763,43 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.AgenticWorkflowListResponse
       x-validate:
+    RoleResponse:
+      description: Lean role reference — id, name, and description
+      example:
+        description: ''
+        id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        name: ''
+      properties:
+        description:
+          description: Role description
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+        id:
+          description: Role ID
+          format: uuid
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        name:
+          description: Role name (e.g. tenant_admin, platform_admin)
+          type: string
+          x-struct:
+          x-validate:
+      readOnly: true
+      required:
+        - id
+        - name
+      title: RoleResponse
+      type: object
+      x-order:
+        - id
+        - name
+        - description
+      x-struct: Elixir.Platform.OpenApiSchema.RoleResponse
+      x-validate:
     BatchLogListResponse:
       description: Paginated list of batch run logs
       properties:
@@ -9404,6 +9855,66 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.ToolSFTPResponse
       x-validate:
+    SignInRequest:
+      description: |-
+        Exchange user credentials for a Bearer session token.
+
+        `tenant_slug` is optional — when omitted, returns a tenant-less Bearer for
+        use on `/api/v1/admin/...` operations and pre-tenant flows like
+        `POST /api/v1/tenants` (creating your first tenant). When provided,
+        returns a tenant-scoped Bearer with the caller's membership role.
+
+        For M2M authentication, use the `X-API-Key` header directly instead.
+         Request
+      example:
+        email: ''
+        expires_in: 60
+        password: a
+        tenant_slug: ''
+      properties:
+        email:
+          description: User email address
+          format: email
+          type: string
+          writeOnly: true
+          x-struct:
+          x-validate:
+        expires_in:
+          description: 'Session duration in seconds. Default: 86400 (24h). Maximum: 2592000 (30 days).'
+          maximum: 2592000
+          minimum: 60
+          nullable: true
+          type: integer
+          writeOnly: true
+          x-struct:
+          x-validate:
+        password:
+          description: User password
+          minLength: 1
+          type: string
+          writeOnly: true
+          x-struct:
+          x-validate:
+        tenant_slug:
+          description: Tenant slug to create session for. Omit to mint a tenant-less Bearer (admin operations, pre-tenant sign-up flow).
+          nullable: true
+          type: string
+          writeOnly: true
+          x-struct:
+          x-validate:
+      required:
+        - email
+        - password
+      title: SignInRequest
+      type: object
+      writeOnly: true
+      x-order:
+        - email
+        - password
+        - tenant_slug
+        - expires_in
+      x-struct: Elixir.Platform.OpenApiSchema.SignInRequest
+      x-validate:
     ToolS3Request:
       allOf:
         - $ref: '#/components/schemas/S3Request'
@@ -9457,6 +9968,62 @@ components:
         - start_time
         - end_time
       x-struct: Elixir.Platform.OpenApiSchema.CloudWatchQueryResponse
+      x-validate:
+    SignUpRequest:
+      description: |-
+        Register a new user account. Mirrors the `/auth/register` LiveView form
+        submission shape. The created user is **unconfirmed** — caller must
+        confirm separately (e.g. via the email confirmation flow, or via
+        `PUT /api/v1/admin/users/:id/confirm` for tests) before signing in.
+
+        No authentication is required.
+         Request
+      example:
+        email: ''
+        first_name: ''
+        last_name: ''
+        password: examplee
+      properties:
+        email:
+          description: User email
+          format: email
+          type: string
+          x-struct:
+          x-validate:
+        first_name:
+          description: First name
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+        last_name:
+          description: Last name
+          nullable: true
+          type: string
+          x-struct:
+          x-validate:
+        password:
+          description: Password (8–72 characters; mirrors the `/auth/register` LiveView form)
+          maxLength: 72
+          minLength: 8
+          type: string
+          writeOnly: true
+          x-struct:
+          x-validate:
+      required:
+        - email
+        - password
+        - first_name
+        - last_name
+      title: SignUpRequest
+      type: object
+      writeOnly: true
+      x-order:
+        - email
+        - password
+        - first_name
+        - last_name
+      x-struct: Elixir.Platform.OpenApiSchema.SignUpRequest
       x-validate:
     AiAgentResponse:
       description: AI Agent configuration — reusable chat-completion resource
@@ -10982,6 +11549,8 @@ paths:
           description: Markdown metadata
         '401':
           $ref: '#/components/responses/unauthorised'
+        '403':
+          $ref: '#/components/responses/forbidden'
         '404':
           $ref: '#/components/responses/not_found'
       security:
@@ -10999,22 +11568,113 @@ paths:
         - **X-API-Key**: returns the single tenant the API key is scoped to.
       operationId: PlatformApi.TenantController.index
       parameters:
-        - description: Page number
+        - description: Page number (1-indexed). Defaults to 1 when omitted.
           in: query
           name: page
           required: false
           schema:
+            example: 1
+            minimum: 1
             type: integer
             x-struct:
             x-validate:
-        - description: Items per page
+        - description: Items per page (1-100). Defaults to the resource's Flop default when omitted.
           in: query
           name: page_size
           required: false
           schema:
+            example: 20
+            maximum: 100
+            minimum: 1
             type: integer
             x-struct:
             x-validate:
+        - description: Fields to sort by, in order of precedence. Must appear in the resource schema's Flop `sortable:` list — unknown fields return 422.
+          in: query
+          name: order_by
+          required: false
+          schema:
+            example:
+              - inserted_at
+            items:
+              type: string
+              x-struct:
+              x-validate:
+            type: array
+            x-struct:
+            x-validate:
+        - description: Sort direction(s), pair-wise with `order_by`. `asc` or `desc`. Defaults to `asc` per unpaired `order_by` entry.
+          in: query
+          name: order_directions
+          required: false
+          schema:
+            example:
+              - desc
+            items:
+              enum:
+                - asc
+                - desc
+              type: string
+              x-struct:
+              x-validate:
+            type: array
+            x-struct:
+            x-validate:
+        - description: 'Flop-native filter array. URL shape: `?filters[0][field]=status&filters[0][op]=equal&filters[0][value]=pending`. Unknown fields or operators return 422 via Flop validation at the context layer.'
+          explode: true
+          in: query
+          name: filters
+          required: false
+          schema:
+            example:
+              - field: status
+                op: ==
+                value: pending
+            items:
+              properties:
+                field:
+                  description: Filterable field name (must be in the resource's `filterable:`)
+                  type: string
+                  x-struct:
+                  x-validate:
+                op:
+                  description: Comparison operator. Defaults to `==` when omitted.
+                  enum:
+                    - ==
+                    - '!='
+                    - <
+                    - <=
+                    - '>'
+                    - '>='
+                    - empty
+                    - not_empty
+                    - like
+                    - ilike
+                    - like_and
+                    - like_or
+                    - ilike_and
+                    - ilike_or
+                    - in
+                    - not_in
+                    - contains
+                    - not_contains
+                  type: string
+                  x-struct:
+                  x-validate:
+                value:
+                  description: Filter value — shape depends on `field` and `op`.
+                  x-struct:
+                  x-validate:
+              required:
+                - field
+                - value
+              type: object
+              x-struct:
+              x-validate:
+            type: array
+            x-struct:
+            x-validate:
+          style: deepObject
       responses:
         '200':
           content:
@@ -11028,6 +11688,51 @@ paths:
         - api_key: []
         - bearer_token: []
       summary: List accessible tenants
+      tags:
+        - Tenants
+    post:
+      callbacks: {}
+      description: |
+        Creates a new tenant and an `:admin` membership for the authenticated user.
+        Wraps `Platform.Tenants.create_tenant/3` verbatim — same primitive that
+        backs the `/app/tenants/new` LiveView.
+
+        On success returns a regular `SessionResponse` carrying a freshly-minted
+        **tenant-scoped Bearer** (`session_token`), the new tenant, and the
+        membership role. Callers swap their tenant-less Bearer for this token
+        and proceed with tenant-scoped work — no second sign-in round-trip.
+
+        The user must be confirmed (`confirmed_at IS NOT NULL`); unconfirmed
+        callers receive 403. Duplicate tenant names (slug collision) return 422.
+
+        Requires `Authorization: Bearer <token>` (X-API-Key cannot create tenants —
+        it carries no platform-user identity to bind the membership to).
+      operationId: PlatformApi.TenantController.create
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantRequest'
+        description: Tenant attributes
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+          description: Tenant created with tenant-scoped session token
+        '401':
+          $ref: '#/components/responses/unauthorised'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '422':
+          $ref: '#/components/responses/unprocessable_entity'
+      security:
+        - api_key: []
+        - bearer_token: []
+      summary: Create a tenant
       tags:
         - Tenants
   /api/v1/tenants/{tenant_slug}/datalakes/{datalake_slug}/generic-tables:
@@ -11728,6 +12433,47 @@ paths:
       summary: Get a batch run log
       tags:
         - Agentic Workflows
+  /api/v1/invitations/{id}/accept:
+    post:
+      callbacks: {}
+      description: |
+        Accepts a pending invitation addressed to the authenticated user, creating
+        a `Membership` and deleting the invitation. Mirrors the LiveView flow at
+        `/app/users/tenant-invitations` → "Accept" button. Wraps
+        `Tenants.accept_invitation!/2` verbatim.
+
+        The function-level guard `get_invitation_by_user!/2` ensures the invitation
+        is addressed to the caller — cross-user acceptance returns 404.
+
+        Requires any Bearer (the recipient often has only a tenant-less Bearer at
+        this point — they just signed up and haven't joined a tenant yet).
+      operationId: PlatformApi.InvitationController.accept
+      parameters:
+        - description: Invitation ID
+          in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipResponse'
+          description: Membership created
+        '401':
+          $ref: '#/components/responses/unauthorised'
+        '404':
+          $ref: '#/components/responses/not_found'
+      security:
+        - bearer_token: []
+      summary: Accept a tenant invitation
+      tags:
+        - Tenants
   /api/v1/tenants/{tenant_slug}/agentic-workflows/{workflow_slug}/execute:
     post:
       callbacks: {}
@@ -14302,6 +15048,52 @@ paths:
       summary: Replace an AI agent
       tags:
         - AI Agents
+  /api/v1/admin/users/{id}/confirm:
+    put:
+      callbacks: {}
+      description: |
+        Marks a user account as confirmed without requiring an email-confirmation
+        token. Idempotent — confirming an already-confirmed user is a 200 no-op
+        that returns the existing `confirmed_at` timestamp.
+
+        Wraps `Accounts.confirm_user!/1` verbatim — exactly the primitive that
+        backs the dev/admin email-confirm path in the LiveView UI. **Zero new
+        business logic.**
+
+        Powerful primitive: bypasses the regular email-confirmation flow. Every
+        successful call is structured-logged with `caller_user_id` and
+        `target_user_id` for forensic trail.
+
+        **Requires platform-admin authentication** (`User.role == :admin`).
+      operationId: PlatformApi.AdminController.confirm_user
+      parameters:
+        - description: Target user ID
+          in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+          description: User confirmed (or already confirmed)
+        '401':
+          $ref: '#/components/responses/unauthorised'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not_found'
+      security:
+        - bearer_token: []
+      summary: Confirm a user (admin bypass)
+      tags:
+        - Admin
   /api/v1/tenants/{tenant_slug}/datalakes/{datalake_slug}/connected-apps:
     get:
       callbacks: {}
@@ -14534,15 +15326,24 @@ paths:
       description: |
         Exchange user credentials for a Bearer session token.
 
-        Send `{email, password, tenant_slug}` to authenticate a human user and receive
-        a session token. Use the returned `session_token` as
-        `Authorization: Bearer <session_token>` on subsequent API requests.
+        Send `{email, password}` (with optional `tenant_slug`) to authenticate a
+        human user and receive a session token. Use the returned `session_token`
+        as `Authorization: Bearer <session_token>` on subsequent API requests.
+
+        When `tenant_slug` is **omitted**, returns a tenant-less Bearer for
+        pre-tenant flows: admin operations under `/api/v1/admin/...` and creating
+        your first tenant via `POST /api/v1/tenants`. Tenant-scoped routes will
+        reject such tokens with 403.
+
+        When `tenant_slug` is **provided**, returns a tenant-scoped Bearer with
+        the caller's membership role (or 401 if the user has no membership in
+        that tenant).
 
         Optionally specify `expires_in` (seconds) to control session duration.
         Default: 86400 (24 hours). Maximum: 2592000 (30 days).
 
-        For M2M (server-to-server) authentication, use `X-API-Key` header directly on
-        each request instead — no session exchange needed.
+        For M2M (server-to-server) authentication, use `X-API-Key` header directly
+        on each request instead — no session exchange needed.
 
         **No authentication required** — this endpoint authenticates the caller.
       operationId: PlatformApi.SessionController.create
@@ -14551,7 +15352,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SessionRequest'
+              $ref: '#/components/schemas/SignInRequest'
         description: User credentials
         required: true
       responses:
@@ -15616,6 +16417,41 @@ paths:
       summary: Create a data activation client
       tags:
         - Data Activation Clients
+  /api/v1/auth/sign-up:
+    post:
+      callbacks: {}
+      description: |
+        Register a new user account. Mirrors the `/auth/register` LiveView form
+        submission shape — wraps `Accounts.register_user/2` verbatim with no
+        business-logic divergence.
+
+        The created user is **unconfirmed** and has **no tenant memberships**. To
+        obtain a Bearer token, the user must first be confirmed (via the email
+        confirmation flow in production, or via `PUT /api/v1/admin/users/:id/confirm`
+        in test bootstrap), then exchange credentials at `POST /api/v1/sessions`.
+
+        No authentication required — this endpoint is the entry point for new users.
+      operationId: PlatformApi.AuthController.sign_up
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+        description: User registration
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+          description: User registered (unconfirmed)
+        '422':
+          $ref: '#/components/responses/unprocessable_entity'
+      summary: Sign up a new user
+      tags:
+        - Auth
   /api/v1/tenants/{tenant_slug}/datalakes/{datalake_slug}/mdm/verify:
     post:
       callbacks: {}
@@ -15780,6 +16616,55 @@ paths:
       summary: Replace a connected app
       tags:
         - Connected Apps
+  /api/v1/tenants/{tenant_slug}/invitations:
+    post:
+      callbacks: {}
+      description: |
+        Creates a `tenant_admin`-issued invitation. Mirrors the LiveView flow at
+        `/app/team` → "Invite new member". Wraps `Tenants.send_tenant_invitation/3`
+        verbatim, including the email send.
+
+        The `role` enum is **membership-level** (`member`, `researcher`, `admin`),
+        NOT the platform-wide `User.role` enum — privilege-escalation safe by
+        construction.
+
+        Requires a tenant-scoped Bearer with membership role `:admin`
+        (`current_role.name == "tenant_admin"`).
+      operationId: PlatformApi.InvitationController.create
+      parameters:
+        - description: Tenant slug
+          in: path
+          name: tenant_slug
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationRequest'
+        description: Invitation attributes
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationResponse'
+          description: Invitation created
+        '401':
+          $ref: '#/components/responses/unauthorised'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '422':
+          $ref: '#/components/responses/unprocessable_entity'
+      security:
+        - bearer_token: []
+      summary: Invite a user to the tenant
+      tags:
+        - Tenants
   /api/v1/tenants/{tenant_slug}/agentic-workflows/{workflow_slug}/workflow-logs:
     get:
       callbacks: {}
@@ -15928,10 +16813,93 @@ paths:
   /api/v1/datasets/{dataset}/search:
     get:
       callbacks: {}
-      description: Search a dataset by type with Flop-based pagination and filtering. The dataset parameter is the dataset type atom (e.g. patient, member, appointment).
+      description: |
+        Two-tier pagination at two layers:
+
+        * **Outer** — `outer_pagination[page]` / `outer_pagination[page_size]`
+          (defaults `1` / `1000`, max `1000`) pages cached IDs from
+          `search_results`. The cap is dictated by Postgres' `WHERE id IN (^ids)`
+          plan — past ~1k parameters the planner regresses.
+        * **Inner** — `inner_search[page]`, `inner_search[page_size]` (defaults
+          `1` / `20`), `inner_search[order_direction]` (sort on the schema's
+          `:global_search` compound), `inner_search[global_search]` (single
+          ILIKE-OR text-search knob).
+
+        Response carries both metas under `meta.sql` and `meta.flop`. A caller
+        that only drives the inner page sees `meta.sql.has_next_page=true` when
+        the SQL search isn't exhausted; advancing `outer_pagination[page]`
+        fetches the next chunk.
       operationId: PlatformApi.DatasetController.search
       parameters:
-        - description: Dataset type (e.g. patient, member)
+        - description: Dataset type (e.g. patient, member, generic_table)
+          in: path
+          name: dataset
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+        - description: UserSearch ID. Omit to search the resource without a SQL search.
+          in: query
+          name: user_search_id
+          required: false
+          schema:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+        - description: Optional datalake ID (defaults to first datalake for the org)
+          in: query
+          name: datalake_id
+          required: false
+          schema:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+        - description: Outer page over the cached search_results chunk.
+          explode: true
+          in: query
+          name: outer_pagination
+          required: false
+          schema:
+            $ref: '#/components/schemas/OuterPagination'
+          style: deepObject
+        - description: Inner search input over the resource — page, sort, global_search.
+          explode: true
+          in: query
+          name: inner_search
+          required: false
+          schema:
+            $ref: '#/components/schemas/InnerSearch'
+          style: deepObject
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetSearchResponse'
+          description: Dataset search results
+        '401':
+          $ref: '#/components/responses/unauthorised'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not_found'
+        '422':
+          $ref: '#/components/responses/unprocessable_entity'
+      security:
+        - api_key: []
+      summary: Page results from a UserSearch — outer SQL chunk + inner resource Flop
+      tags:
+        - Datasets
+  /api/v1/datasets/{dataset}/user-searches:
+    post:
+      callbacks: {}
+      description: Creates a `UserSearch` row, runs `INSERT INTO search_results SELECT ... WHERE <search_query>` against the regulated schema, and returns the `UserSearch` resource (including `status`, `results_count`, and `error_message`). The session's `data_access_mode` controls which schema is queried.
+      operationId: PlatformApi.DatasetController.create_user_search
+      parameters:
+        - description: Dataset type (e.g. patient, member, generic_table)
           in: path
           name: dataset
           required: true
@@ -15948,38 +16916,31 @@ paths:
             type: string
             x-struct:
             x-validate:
-        - description: Page number
-          in: query
-          name: page
-          required: false
-          schema:
-            type: integer
-            x-struct:
-            x-validate:
-        - description: Results per page (max 100)
-          in: query
-          name: page_size
-          required: false
-          schema:
-            type: integer
-            x-struct:
-            x-validate:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserSearchRequest'
+        description: UserSearch request body
+        required: false
       responses:
-        '200':
+        '201':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DatasetSearchResponse'
-          description: Dataset search results
+                $ref: '#/components/schemas/UserSearchResponse'
+          description: UserSearch created
         '401':
           $ref: '#/components/responses/unauthorised'
+        '403':
+          $ref: '#/components/responses/forbidden'
         '404':
           $ref: '#/components/responses/not_found'
         '422':
           $ref: '#/components/responses/unprocessable_entity'
       security:
         - api_key: []
-      summary: Search a dataset
+      summary: Create and execute a SQL search for a dataset
       tags:
         - Datasets
   /api/v1/tenants/{tenant_slug}/agentic-workflows/{workflow_slug}/batch-logs:
@@ -16677,6 +17638,8 @@ tags:
     name: Health
   - description: Session authentication — create human sessions and verify credentials.
     name: Auth
+  - description: Platform-admin endpoints — root sign-in, force-confirm users, and other operations gated by `User.role == :admin`.
+    name: Admin
   - description: Tenant listing — accessible tenants for the authenticated identity.
     name: Tenants
   - description: Datalake CRUD — non-sensitive metadata only.
@@ -16708,6 +17671,7 @@ x-tagGroups:
     tags:
       - Health
       - Auth
+      - Admin
   - name: Tenant Management
     tags:
       - Tenants
