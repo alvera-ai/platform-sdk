@@ -10211,6 +10211,25 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.ToolSNSRequest
       x-validate:
+    InvitationListResponse:
+      description: Paginated list of invitations
+      properties:
+        data:
+          description: List of invitations
+          items:
+            $ref: '#/components/schemas/InvitationResponse'
+          type: array
+          x-struct:
+          x-validate:
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+      required:
+        - data
+        - meta
+      title: InvitationListResponse
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.InvitationListResponse
+      x-validate:
     ActionStatusUpdaterRequest:
       description: Action Status Updater — automated polling for delivery status updates. Request
       example:
@@ -11926,6 +11945,34 @@ paths:
       summary: Create a generic table
       tags:
         - Generic Tables
+  /api/v1/invitations:
+    get:
+      callbacks: {}
+      description: |
+        Returns invitations addressed to the authenticated user that have not
+        yet been accepted. Mirrors the LiveView at `/app/users/tenant-invitations`
+        that recipients see after sign-in. Wraps `Tenants.list_invitations_by_user/1`
+        verbatim — always filtered to the current user, never accepts a query
+        parameter that could leak another user's invitations.
+
+        Requires any Bearer (tenant-less is fine — recipients typically don't
+        have tenant scope yet at this point in the bootstrap flow).
+      operationId: PlatformApi.InvitationController.index
+      parameters: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationListResponse'
+          description: Pending invitations
+        '401':
+          $ref: '#/components/responses/unauthorised'
+      security:
+        - bearer_token: []
+      summary: List the authenticated user's pending invitations
+      tags:
+        - Tenants
   /api/v1/tenants/{tenant_slug}/datalakes/{datalake_slug}/interoperability-contracts:
     get:
       callbacks: {}

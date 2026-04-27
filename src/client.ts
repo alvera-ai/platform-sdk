@@ -23,6 +23,7 @@ import {
   platformApiDatasetControllerCreateUserSearch,
   platformApiInvitationControllerAccept,
   platformApiInvitationControllerCreate,
+  platformApiInvitationControllerIndex,
   platformApiTenantControllerCreate,
   platformApiActionStatusUpdaterControllerIndex,
   platformApiActionStatusUpdaterControllerUpdate,
@@ -368,6 +369,8 @@ export function createPlatformApi(config: ApiConfig) {
     },
 
     invitations: {
+      list: () =>
+        platformApiInvitationControllerIndex({ throwOnError: true }),
       create: (tenantSlug: string, body: Record<string, unknown>) =>
         platformApiInvitationControllerCreate({
           path: { tenant_slug: tenantSlug },
