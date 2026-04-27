@@ -234,7 +234,13 @@ export interface CreateSessionParams {
   baseUrl: string;
   email: string;
   password: string;
-  tenantSlug: string;
+  /**
+   * Tenant slug to scope the session to. Omit to mint a tenantless Bearer
+   * for admin operations or the pre-tenant phase of the self-bootstrap
+   * flow (sign-up → confirm → tenants.create). When omitted, the returned
+   * `tenant` and `role` fields are null.
+   */
+  tenantSlug?: string;
   /** Session duration in seconds. Default 86400 (24h). Max 2592000 (30d). */
   expiresIn?: number;
 }
@@ -244,14 +250,18 @@ export interface SessionResult {
   sessionToken: string;
   /** ISO-8601 expiration timestamp, or null for non-expiring sessions. */
   expiresAt: string | null;
-  tenant: { id: string; slug: string; name: string };
-  role: { id: string; name: string };
+  /** Null for tenantless sessions (admin / pre-tenant bootstrap). */
+  tenant: { id: string; slug: string; name: string } | null;
+  /** Null for tenantless sessions. */
+  role: { id: string; name: string } | null;
   user: { id: string; firstName: string | null; lastName: string | null } | null;
 }
 
 /**
- * Exchange user credentials for a Bearer session token. The returned
- * sessionToken is what you pass into createPlatformApi.
+ * Exchange user credentials for a Bearer session token. Pass `tenantSlug`
+ * for a tenant-scoped session (the common case); omit it for a tenantless
+ * Bearer used by admin endpoints (`PUT /admin/users/:id/confirm`) or the
+ * pre-tenant bootstrap phase.
  *
  * Throws on any non-2xx response (e.g. 401 invalid credentials).
  */
@@ -264,7 +274,7 @@ export async function createSession(
     body: {
       email: params.email,
       password: params.password,
-      tenant_slug: params.tenantSlug,
+      ...(params.tenantSlug !== undefined ? { tenant_slug: params.tenantSlug } : {}),
       ...(params.expiresIn !== undefined ? { expires_in: params.expiresIn } : {}),
     },
     throwOnError: true,
@@ -273,15 +283,14 @@ export async function createSession(
   if (!data.session_token) {
     throw new Error('Session created but no session_token was returned.');
   }
-  if (!data.tenant || !data.role) {
-    throw new Error('Session created but tenant/role missing from response.');
-  }
 
   return {
     sessionToken: data.session_token,
     expiresAt: data.expires_at ?? null,
-    tenant: { id: data.tenant.id, slug: data.tenant.slug, name: data.tenant.name },
-    role: { id: data.role.id, name: data.role.name },
+    tenant: data.tenant
+      ? { id: data.tenant.id, slug: data.tenant.slug, name: data.tenant.name }
+      : null,
+    role: data.role ? { id: data.role.id, name: data.role.name } : null,
     user: data.user
       ? {
           id: data.user.id,
@@ -298,67 +307,6 @@ export async function createSession(
  */
 export async function revokeSession(): Promise<void> {
   await platformApiSessionControllerDelete({ throwOnError: true });
-}
-
-// ---------------------------------------------------------------------------
-// Tenantless session — for admin operations and the pre-tenant bootstrap
-// flow (sign-up → confirm → tenant create). The returned Bearer is scoped
-// to the user but does not authorize any tenant-scoped endpoint until the
-// caller mints a tenant-scoped session via POST /tenants or createSession.
-// ---------------------------------------------------------------------------
-
-export interface CreateTenantlessSessionParams {
-  baseUrl: string;
-  email: string;
-  password: string;
-  /** Session duration in seconds. Default 86400 (24h). Max 2592000 (30d). */
-  expiresIn?: number;
-}
-
-export interface TenantlessSessionResult {
-  /** Bearer token. Pass into createPlatformApi to call admin/auth endpoints. */
-  sessionToken: string;
-  /** ISO-8601 expiration timestamp, or null for non-expiring sessions. */
-  expiresAt: string | null;
-  user: { id: string; firstName: string | null; lastName: string | null } | null;
-}
-
-/**
- * Exchange credentials for a tenantless Bearer token. Used for root-admin
- * operations (e.g. PUT /admin/users/:id/confirm) and the pre-tenant phase
- * of the self-bootstrap flow, where no tenant exists yet for the user.
- *
- * Throws on any non-2xx response (e.g. 401 invalid credentials).
- */
-export async function createTenantlessSession(
-  params: CreateTenantlessSessionParams,
-): Promise<TenantlessSessionResult> {
-  client.setConfig({ baseUrl: params.baseUrl.replace(/\/$/, '') });
-
-  const { data } = await platformApiSessionControllerCreate({
-    body: {
-      email: params.email,
-      password: params.password,
-      ...(params.expiresIn !== undefined ? { expires_in: params.expiresIn } : {}),
-    },
-    throwOnError: true,
-  });
-
-  if (!data.session_token) {
-    throw new Error('Session created but no session_token was returned.');
-  }
-
-  return {
-    sessionToken: data.session_token,
-    expiresAt: data.expires_at ?? null,
-    user: data.user
-      ? {
-          id: data.user.id,
-          firstName: data.user.first_name ?? null,
-          lastName: data.user.last_name ?? null,
-        }
-      : null,
-  };
 }
 
 // ---------------------------------------------------------------------------
