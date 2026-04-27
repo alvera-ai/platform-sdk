@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - fix/21-bootstrap-endpoints  # TEMP: smoke-test workflow on this branch
 
 permissions:
   id-token: write # OIDC for npm Trusted Publishing + provenance
@@ -26,6 +28,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           pkg_version=$(node -p "require('./package.json').version")
           tag_version="${GITHUB_REF_NAME#v}"
@@ -38,9 +41,8 @@ jobs:
 
       - run: pnpm typecheck
 
-      - run: pnpm build
-
       - name: Inspect tarball contents
         run: npm pack --dry-run
 
-      - run: npm publish --provenance --access public
+      - if: startsWith(github.ref, 'refs/tags/v')
+        run: npm publish --provenance --access public
