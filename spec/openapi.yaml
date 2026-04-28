@@ -872,6 +872,96 @@ components:
         - updated_at
       x-struct: Elixir.Platform.OpenApiSchema.AgenticWorkflowResponse
       x-validate:
+    ManualToolInvocationResponse:
+      description: A manual test invocation of a tool. The request body carries only `tool_call` (polymorphic on `__type__`); all other fields are server-populated and returned in the response.
+      example:
+        error_message: ''
+        id: 02ef9c5f-29e6-48fc-9ec3-7ed57ed351f6
+        inserted_at: 2020-04-20T16:20:00Z
+        result: {}
+        status: pending
+        tool_call:
+          body:
+          sms_type: transactional
+          to:
+          tool_call_type: sms_request
+        updated_at: 2020-04-20T16:20:00Z
+      properties:
+        error_message:
+          description: Provider error message on failure.
+          nullable: true
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        id:
+          description: Invocation ID
+          format: uuid
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        inserted_at:
+          description: Creation timestamp
+          format: date-time
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        result:
+          description: Provider response payload on success (free-form, provider-specific).
+          nullable: true
+          readOnly: true
+          type: object
+          x-struct:
+          x-validate:
+        status:
+          description: Execution status — server-set. `pending` is the initial state, `success`/`error` reflect provider response.
+          enum:
+            - pending
+            - success
+            - error
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+        tool_call:
+          discriminator:
+            mapping:
+              aws_lambda_request: '#/components/schemas/ManualToolInvocationAWSLambdaCallResponse'
+              email_request: '#/components/schemas/ManualToolInvocationEmailCallResponse'
+              restapi_request: '#/components/schemas/ManualToolInvocationRESTCallResponse'
+              sms_request: '#/components/schemas/ManualToolInvocationSMSCallResponse'
+            propertyName: tool_call_type
+          oneOf:
+            - $ref: '#/components/schemas/ManualToolInvocationSMSCallResponse'
+            - $ref: '#/components/schemas/ManualToolInvocationEmailCallResponse'
+            - $ref: '#/components/schemas/ManualToolInvocationRESTCallResponse'
+            - $ref: '#/components/schemas/ManualToolInvocationAWSLambdaCallResponse'
+          readOnly: true
+          type: object
+          x-struct:
+          x-validate:
+        updated_at:
+          description: Last update timestamp
+          format: date-time
+          readOnly: true
+          type: string
+          x-struct:
+          x-validate:
+      readOnly: true
+      title: ManualToolInvocationResponse
+      type: object
+      x-order:
+        - id
+        - status
+        - tool_call
+        - result
+        - error_message
+        - inserted_at
+        - updated_at
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationResponse
+      x-validate:
     CloudWatchLogGroupResponse:
       description: AWS CloudWatch Logs authentication credential store. Referenced by ActionStatusUpdater for log-group polling.
       example:
@@ -4263,6 +4353,25 @@ components:
         - columns
       x-struct: Elixir.Platform.OpenApiSchema.GenericTableRequest
       x-validate:
+    ManualToolInvocationEmailCallResponse:
+      allOf:
+        - $ref: '#/components/schemas/EmailCallResponse'
+        - properties:
+            tool_call_type:
+              enum:
+                - email_request
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - tool_call_type
+          type: object
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationEmailCallResponse
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationEmailCallResponse
+      x-validate:
     ToolSharePointResponse:
       allOf:
         - $ref: '#/components/schemas/SharePointResponse'
@@ -4435,6 +4544,25 @@ components:
       title: DataActivationClientManualUploadCallResponse
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.DataActivationClientManualUploadCallResponse
+      x-validate:
+    ManualToolInvocationSMSCallResponse:
+      allOf:
+        - $ref: '#/components/schemas/SMSCallResponse'
+        - properties:
+            tool_call_type:
+              enum:
+                - sms_request
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - tool_call_type
+          type: object
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationSMSCallResponse
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationSMSCallResponse
       x-validate:
     ActionStatusUpdaterCloudWatchQueryResponse:
       allOf:
@@ -5365,6 +5493,58 @@ components:
         - base_path
       x-struct: Elixir.Platform.OpenApiSchema.SharePointRequest
       x-validate:
+    ManualToolInvocationSMSCallRequest:
+      allOf:
+        - $ref: '#/components/schemas/SMSCallRequest'
+        - properties:
+            tool_call_type:
+              enum:
+                - sms_request
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - tool_call_type
+          type: object
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationSMSCallRequest
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationSMSCallRequest
+      x-validate:
+    ManualToolInvocationRequest:
+      description: A manual test invocation of a tool. The request body carries only `tool_call` (polymorphic on `__type__`); all other fields are server-populated and returned in the response. Request
+      example:
+        tool_call:
+          body:
+          sms_type: transactional
+          to:
+          tool_call_type: sms_request
+      properties:
+        tool_call:
+          discriminator:
+            mapping:
+              aws_lambda_request: '#/components/schemas/ManualToolInvocationAWSLambdaCallRequest'
+              email_request: '#/components/schemas/ManualToolInvocationEmailCallRequest'
+              restapi_request: '#/components/schemas/ManualToolInvocationRESTCallRequest'
+              sms_request: '#/components/schemas/ManualToolInvocationSMSCallRequest'
+            propertyName: tool_call_type
+          oneOf:
+            - $ref: '#/components/schemas/ManualToolInvocationSMSCallRequest'
+            - $ref: '#/components/schemas/ManualToolInvocationEmailCallRequest'
+            - $ref: '#/components/schemas/ManualToolInvocationRESTCallRequest'
+            - $ref: '#/components/schemas/ManualToolInvocationAWSLambdaCallRequest'
+          type: object
+          writeOnly: true
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationRequest
+      type: object
+      writeOnly: true
+      x-order:
+        - tool_call
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationRequest
+      x-validate:
     ActionManualUploadCallResponse:
       allOf:
         - $ref: '#/components/schemas/ManualUploadCallResponse'
@@ -6202,6 +6382,25 @@ components:
         - base_message
       x-struct: Elixir.Platform.OpenApiSchema.SNSRequest
       x-validate:
+    ManualToolInvocationAWSLambdaCallResponse:
+      allOf:
+        - $ref: '#/components/schemas/AWSLambdaCallResponse'
+        - properties:
+            tool_call_type:
+              enum:
+                - aws_lambda_request
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - tool_call_type
+          type: object
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationAWSLambdaCallResponse
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationAWSLambdaCallResponse
+      x-validate:
     PingResponse:
       description: Health check response with version and database connectivity status
       properties:
@@ -6460,6 +6659,25 @@ components:
       title: ToolEmailRequest
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.ToolEmailRequest
+      x-validate:
+    ManualToolInvocationRESTCallResponse:
+      allOf:
+        - $ref: '#/components/schemas/RESTCallResponse'
+        - properties:
+            tool_call_type:
+              enum:
+                - restapi_request
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - tool_call_type
+          type: object
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationRESTCallResponse
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationRESTCallResponse
       x-validate:
     SessionResponse:
       description: |
@@ -9525,6 +9743,25 @@ components:
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.ActionStatusUpdaterListResponse
       x-validate:
+    ManualToolInvocationEmailCallRequest:
+      allOf:
+        - $ref: '#/components/schemas/EmailCallRequest'
+        - properties:
+            tool_call_type:
+              enum:
+                - email_request
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - tool_call_type
+          type: object
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationEmailCallRequest
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationEmailCallRequest
+      x-validate:
     ConnectedAppResponse:
       description: External web application connected to the platform via M2M API key
       example:
@@ -9877,6 +10114,25 @@ components:
       type: object
       x-struct: Elixir.PlatformApi.Schemas.RunManuallyResponse
       x-validate:
+    ManualToolInvocationAWSLambdaCallRequest:
+      allOf:
+        - $ref: '#/components/schemas/AWSLambdaCallRequest'
+        - properties:
+            tool_call_type:
+              enum:
+                - aws_lambda_request
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - tool_call_type
+          type: object
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationAWSLambdaCallRequest
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationAWSLambdaCallRequest
+      x-validate:
     ToolSFTPResponse:
       allOf:
         - $ref: '#/components/schemas/SFTPResponse'
@@ -9974,6 +10230,25 @@ components:
       title: ToolS3Request
       type: object
       x-struct: Elixir.Platform.OpenApiSchema.ToolS3Request
+      x-validate:
+    ManualToolInvocationRESTCallRequest:
+      allOf:
+        - $ref: '#/components/schemas/RESTCallRequest'
+        - properties:
+            tool_call_type:
+              enum:
+                - restapi_request
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - tool_call_type
+          type: object
+          x-struct:
+          x-validate:
+      title: ManualToolInvocationRESTCallRequest
+      type: object
+      x-struct: Elixir.Platform.OpenApiSchema.ManualToolInvocationRESTCallRequest
       x-validate:
     CloudWatchQueryResponse:
       description: CloudWatch log group query descriptor — log group name plus Liquid-templated time window. Reusable across any caller that needs CloudWatch polling (currently ActionStatusUpdater.updater_body). Title is CloudWatchQuery (not CloudWatchRequest) to avoid triple-`Request` stacking in the library-generated parent-contextual sibling module names (e.g. ActionStatusUpdaterCloudWatchQueryRequest).
@@ -11622,6 +11897,54 @@ paths:
       summary: Get a datalake
       tags:
         - Datalakes
+  /api/v1/tenants/{tenant_slug}/tools/{id}/test-invocation:
+    post:
+      callbacks: {}
+      description: "Manually invokes a tool with caller-supplied parameters — the API equivalent of the 'Try It' panel in the tool form. Records a `ManualToolInvocation` for audit and returns the provider response (or error). Does not access tenant datasets, so no capability ceiling check is applied."
+      operationId: PlatformApi.ToolController.test_invocation
+      parameters:
+        - description: Tenant slug
+          in: path
+          name: tenant_slug
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+        - description: Tool ID
+          in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualToolInvocationRequest'
+        description: Test invocation payload — `tool_call` polymorphic on `__type__`.
+        required: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualToolInvocationResponse'
+          description: Invocation recorded — inspect `status` for outcome
+        '401':
+          $ref: '#/components/responses/unauthorised'
+        '404':
+          $ref: '#/components/responses/not_found'
+        '422':
+          $ref: '#/components/responses/unprocessable_entity'
+      security:
+        - api_key: []
+      summary: Test invoke a tool
+      tags:
+        - Tools
   /api/v1/datasets/{dataset_type}/metadata:
     get:
       callbacks: {}

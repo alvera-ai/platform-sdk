@@ -98,6 +98,7 @@ import {
   platformApiToolControllerDelete,
   platformApiToolControllerIndex,
   platformApiToolControllerShow,
+  platformApiToolControllerTestInvocation,
   platformApiToolControllerUpdate,
 } from './generated/sdk.gen.js';
 
@@ -550,6 +551,12 @@ function _buildApi(myClient: Client) {
       delete: (tenantSlug: string, id: string) =>
         platformApiToolControllerDelete({
           path: { tenant_slug: tenantSlug, id },
+          client: myClient, throwOnError: true,
+        }),
+      testInvocation: (tenantSlug: string, id: string, body: Record<string, unknown>) =>
+        platformApiToolControllerTestInvocation({
+          path: { tenant_slug: tenantSlug, id },
+          body: body as never,
           client: myClient, throwOnError: true,
         }),
     },
