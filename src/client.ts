@@ -906,9 +906,17 @@ function _buildApi(myClient: Client) {
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
             client: myClient, throwOnError: true,
           }),
-        get: (tenantSlug: string, workflowSlug: string, id: string) =>
+        get: (
+          tenantSlug: string,
+          workflowSlug: string,
+          id: string,
+          opts?: { dataAccessMode?: 'regulated' | 'unregulated' },
+        ) =>
           platformApiAgenticWorkflowOperationsControllerWorkflowLogShow({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
+            ...(opts?.dataAccessMode
+              ? { query: { data_access_mode: opts.dataAccessMode } }
+              : {}),
             client: myClient, throwOnError: true,
           }),
         download: (tenantSlug: string, workflowSlug: string, id: string) =>
