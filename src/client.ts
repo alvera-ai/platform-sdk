@@ -342,6 +342,13 @@ export type PlatformApi = ReturnType<typeof _buildApi>;
 
 export interface DatasetSearchOptions {
   datalakeId?: string;
+  userSearchId?: string;
+  /**
+   * Optional override for the data access mode used by this read.
+   * Defaults to the session's `data_access_mode`. The session's capability
+   * ceiling still applies — escalating beyond it returns 403.
+   */
+  dataAccessMode?: 'regulated' | 'unregulated';
   page?: number;
   pageSize?: number;
 }
@@ -410,6 +417,10 @@ function _buildApi(myClient: Client) {
           path: { dataset },
           query: {
             ...(options.datalakeId !== undefined ? { datalake_id: options.datalakeId } : {}),
+            ...(options.userSearchId !== undefined ? { user_search_id: options.userSearchId } : {}),
+            ...(options.dataAccessMode !== undefined
+              ? { data_access_mode: options.dataAccessMode }
+              : {}),
             ...(options.page !== undefined ? { page: options.page } : {}),
             ...(options.pageSize !== undefined ? { page_size: options.pageSize } : {}),
           },

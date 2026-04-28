@@ -17002,6 +17002,17 @@ paths:
             type: string
             x-struct:
             x-validate:
+        - description: "Optional override for the data access mode used by this read. Defaults to the session's `data_access_mode`. The session's capability ceiling still applies — escalating beyond it returns 403."
+          in: query
+          name: data_access_mode
+          required: false
+          schema:
+            enum:
+              - regulated
+              - unregulated
+            type: string
+            x-struct:
+            x-validate:
         - description: Outer page over the cached search_results chunk.
           explode: true
           in: query
