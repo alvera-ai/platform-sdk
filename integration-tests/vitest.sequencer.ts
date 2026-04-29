@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
-import { BaseSequencer, type WorkspaceSpec } from 'vitest/node'
+import { BaseSequencer, type TestSpecification } from 'vitest/node'
 
 /**
  * ManifestSequencer — orders test files by an explicit per-directory
@@ -20,6 +20,11 @@ import { BaseSequencer, type WorkspaceSpec } from 'vitest/node'
  *
  * Manifest reads are cached per-directory — one read per industry
  * regardless of how many specs vitest schedules.
+ *
+ * Vitest 4 note: the spec arg is `TestSpecification` (a class with a
+ * `.moduleId` property), not the v2 tuple `[project, filePath]`. Access
+ * `.moduleId` directly — destructuring it as iterable raises
+ * `object is not iterable`.
  */
 export class ManifestSequencer extends BaseSequencer {
   private manifestCache = new Map<string, string[]>()
@@ -50,7 +55,8 @@ export class ManifestSequencer extends BaseSequencer {
     return basename(filePath, '.test.ts')
   }
 
-  private orderIndex([, filePath]: WorkspaceSpec): number {
+  private orderIndex(spec: TestSpecification): number {
+    const filePath = spec.moduleId
     const dir = dirname(filePath)
     const slug = this.slugOf(filePath)
     const manifest = this.manifestFor(dir)
@@ -64,7 +70,7 @@ export class ManifestSequencer extends BaseSequencer {
     return idx
   }
 
-  override async sort(files: WorkspaceSpec[]): Promise<WorkspaceSpec[]> {
+  override async sort(files: TestSpecification[]): Promise<TestSpecification[]> {
     return [...files].sort((a, b) => this.orderIndex(a) - this.orderIndex(b))
   }
 }
