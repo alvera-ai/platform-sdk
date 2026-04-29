@@ -240,8 +240,9 @@ program
         session_token: session.sessionToken,
         expires_at: session.expiresAt ?? '',
       });
+      const tenantLabel = session.tenant ? `tenant "${session.tenant.slug}"` : 'no tenant';
       process.stderr.write(
-        `Logged in as ${email} → tenant "${session.tenant.slug}" (profile "${profile}").\n` +
+        `Logged in as ${email} → ${tenantLabel} (profile "${profile}").\n` +
           `Token stored in ${CONFIG_PATHS.credentials}\n` +
           (session.expiresAt ? `Expires at ${session.expiresAt}\n` : ''),
       );

@@ -16,8 +16,16 @@
  */
 
 import { client } from './generated/client.gen.js';
+import { type Client, createClient } from './generated/client/index.js';
 import {
   platformApiActionStatusUpdaterControllerCreate,
+  platformApiAdminControllerConfirmUser,
+  platformApiAuthControllerSignUp,
+  platformApiDatasetControllerCreateUserSearch,
+  platformApiInvitationControllerAccept,
+  platformApiInvitationControllerCreate,
+  platformApiInvitationControllerIndex,
+  platformApiTenantControllerCreate,
   platformApiActionStatusUpdaterControllerIndex,
   platformApiActionStatusUpdaterControllerUpdate,
   platformApiAgenticWorkflowControllerCreate,
@@ -64,6 +72,7 @@ import {
   platformApiDatalakeControllerCreateUploadLink,
   platformApiDatalakeControllerIndex,
   platformApiDatalakeControllerMetadata,
+  platformApiDatalakeControllerMigrate,
   platformApiDatalakeControllerShow,
   platformApiDatasetControllerDatasetMetadata,
   platformApiDatasetControllerSearch,
@@ -89,6 +98,7 @@ import {
   platformApiToolControllerDelete,
   platformApiToolControllerIndex,
   platformApiToolControllerShow,
+  platformApiToolControllerTestInvocation,
   platformApiToolControllerUpdate,
 } from './generated/sdk.gen.js';
 
@@ -228,7 +238,13 @@ export interface CreateSessionParams {
   baseUrl: string;
   email: string;
   password: string;
-  tenantSlug: string;
+  /**
+   * Tenant slug to scope the session to. Omit to mint a tenantless Bearer
+   * for admin operations or the pre-tenant phase of the self-bootstrap
+   * flow (sign-up → confirm → tenants.create). When omitted, the returned
+   * `tenant` and `role` fields are null.
+   */
+  tenantSlug?: string;
   /** Session duration in seconds. Default 86400 (24h). Max 2592000 (30d). */
   expiresIn?: number;
 }
@@ -238,14 +254,18 @@ export interface SessionResult {
   sessionToken: string;
   /** ISO-8601 expiration timestamp, or null for non-expiring sessions. */
   expiresAt: string | null;
-  tenant: { id: string; slug: string; name: string };
-  role: { id: string; name: string };
+  /** Null for tenantless sessions (admin / pre-tenant bootstrap). */
+  tenant: { id: string; slug: string; name: string } | null;
+  /** Null for tenantless sessions. */
+  role: { id: string; name: string } | null;
   user: { id: string; firstName: string | null; lastName: string | null } | null;
 }
 
 /**
- * Exchange user credentials for a Bearer session token. The returned
- * sessionToken is what you pass into createPlatformApi.
+ * Exchange user credentials for a Bearer session token. Pass `tenantSlug`
+ * for a tenant-scoped session (the common case); omit it for a tenantless
+ * Bearer used by admin endpoints (`PUT /admin/users/:id/confirm`) or the
+ * pre-tenant bootstrap phase.
  *
  * Throws on any non-2xx response (e.g. 401 invalid credentials).
  */
@@ -258,7 +278,7 @@ export async function createSession(
     body: {
       email: params.email,
       password: params.password,
-      tenant_slug: params.tenantSlug,
+      ...(params.tenantSlug !== undefined ? { tenant_slug: params.tenantSlug } : {}),
       ...(params.expiresIn !== undefined ? { expires_in: params.expiresIn } : {}),
     },
     throwOnError: true,
@@ -271,8 +291,10 @@ export async function createSession(
   return {
     sessionToken: data.session_token,
     expiresAt: data.expires_at ?? null,
-    tenant: data.tenant,
-    role: data.role,
+    tenant: data.tenant
+      ? { id: data.tenant.id, slug: data.tenant.slug, name: data.tenant.name }
+      : null,
+    role: data.role ? { id: data.role.id, name: data.role.name } : null,
     user: data.user
       ? {
           id: data.user.id,
@@ -301,13 +323,33 @@ export interface ApiConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Factory — configures the hey-api client, returns ergonomic resource methods
+// Factories — two named entry points
+//
+//   createPlatformApi(config)            singleton mode (default)
+//     Mutates the shared, generated client. Cheap, single-bearer-at-a-time.
+//     Right for CLIs and single-user web apps where one logged-in user holds
+//     exactly one bearer at any moment.
+//
+//   createIsolatedPlatformApi(config)    private-client mode
+//     Builds its own Client via createClient() and threads it on every call.
+//     Right for code that needs MULTIPLE concurrent APIs bound to DIFFERENT
+//     bearers in the same process — integration tests holding a root session
+//     and a tenant-scoped session at once, or multi-tenant background jobs.
+//
+// Both factories return the same PlatformApi shape, built by _buildApi().
 // ---------------------------------------------------------------------------
 
-export type PlatformApi = ReturnType<typeof createPlatformApi>;
+export type PlatformApi = ReturnType<typeof _buildApi>;
 
 export interface DatasetSearchOptions {
   datalakeId?: string;
+  userSearchId?: string;
+  /**
+   * Optional override for the data access mode used by this read.
+   * Defaults to the session's `data_access_mode`. The session's capability
+   * ceiling still applies — escalating beyond it returns 403.
+   */
+  dataAccessMode?: 'regulated' | 'unregulated';
   page?: number;
   pageSize?: number;
 }
@@ -317,24 +359,57 @@ export interface DatasetMetadataOptions {
   genericTableId?: string;
 }
 
-export function createPlatformApi(config: ApiConfig) {
-  client.setConfig({
-    baseUrl: config.baseUrl.replace(/\/$/, ''),
-    headers: { Authorization: `Bearer ${config.sessionToken}` },
-  });
+export function createPlatformApi(config: ApiConfig): PlatformApi {
+  const baseUrl = config.baseUrl.replace(/\/$/, '');
+  const headers = { Authorization: `Bearer ${config.sessionToken}` };
+  client.setConfig({ baseUrl, headers });
+  return _buildApi(client);
+}
 
+export function createIsolatedPlatformApi(config: ApiConfig): PlatformApi {
+  const baseUrl = config.baseUrl.replace(/\/$/, '');
+  const headers = { Authorization: `Bearer ${config.sessionToken}` };
+  return _buildApi(createClient({ baseUrl, headers }));
+}
+
+function _buildApi(myClient: Client) {
   return {
     ping: () =>
-      platformApiPingControllerPing({ throwOnError: true }),
+      platformApiPingControllerPing({ client: myClient, throwOnError: true }),
 
     sessions: {
       verify: () =>
-        platformApiSessionControllerVerify({ throwOnError: true }),
+        platformApiSessionControllerVerify({ client: myClient, throwOnError: true }),
+    },
+
+    auth: {
+      signUp: (body: Record<string, unknown>) =>
+        platformApiAuthControllerSignUp({ body: body as never, client: myClient, throwOnError: true }),
+    },
+
+    admin: {
+      confirmUser: (id: string) =>
+        platformApiAdminControllerConfirmUser({ path: { id }, client: myClient, throwOnError: true }),
     },
 
     tenants: {
       list: () =>
-        platformApiTenantControllerIndex({ throwOnError: true }),
+        platformApiTenantControllerIndex({ client: myClient, throwOnError: true }),
+      create: (body: Record<string, unknown>) =>
+        platformApiTenantControllerCreate({ body: body as never, client: myClient, throwOnError: true }),
+    },
+
+    invitations: {
+      list: () =>
+        platformApiInvitationControllerIndex({ client: myClient, throwOnError: true }),
+      create: (tenantSlug: string, body: Record<string, unknown>) =>
+        platformApiInvitationControllerCreate({
+          path: { tenant_slug: tenantSlug },
+          body: body as never,
+          client: myClient, throwOnError: true,
+        }),
+      accept: (id: string) =>
+        platformApiInvitationControllerAccept({ path: { id }, client: myClient, throwOnError: true }),
     },
 
     datasets: {
@@ -343,10 +418,14 @@ export function createPlatformApi(config: ApiConfig) {
           path: { dataset },
           query: {
             ...(options.datalakeId !== undefined ? { datalake_id: options.datalakeId } : {}),
+            ...(options.userSearchId !== undefined ? { user_search_id: options.userSearchId } : {}),
+            ...(options.dataAccessMode !== undefined
+              ? { data_access_mode: options.dataAccessMode }
+              : {}),
             ...(options.page !== undefined ? { page: options.page } : {}),
             ...(options.pageSize !== undefined ? { page_size: options.pageSize } : {}),
           },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       metadata: (datasetType: string, options: DatasetMetadataOptions = {}) =>
         platformApiDatasetControllerDatasetMetadata({
@@ -357,7 +436,18 @@ export function createPlatformApi(config: ApiConfig) {
               ? { generic_table_id: options.genericTableId }
               : {}),
           },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
+        }),
+      createUserSearch: (
+        dataset: string,
+        body: Record<string, unknown>,
+        options: { datalakeId?: string } = {},
+      ) =>
+        platformApiDatasetControllerCreateUserSearch({
+          path: { dataset },
+          query: options.datalakeId !== undefined ? { datalake_id: options.datalakeId } : {},
+          body: body as never,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -365,23 +455,28 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string) =>
         platformApiDatalakeControllerIndex({
           path: { tenant_slug: tenantSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       get: (tenantSlug: string, id: string) =>
         platformApiDatalakeControllerShow({
           path: { tenant_slug: tenantSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, body: Record<string, unknown>) =>
         platformApiDatalakeControllerCreate({
           path: { tenant_slug: tenantSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       metadata: (tenantSlug: string, datalakeSlug: string) =>
         platformApiDatalakeControllerMetadata({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
+        }),
+      migrate: (tenantSlug: string, datalakeSlug: string) =>
+        platformApiDatalakeControllerMigrate({
+          path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
+          client: myClient, throwOnError: true,
         }),
       createUploadLink: (
         tenantSlug: string,
@@ -391,7 +486,7 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiDatalakeControllerCreateUploadLink({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       createDownloadLink: (
         tenantSlug: string,
@@ -401,7 +496,7 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiDatalakeControllerCreateDownloadLink({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -409,13 +504,13 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string, datalakeSlug: string) =>
         platformApiDataSourceControllerIndex({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
         platformApiDataSourceControllerCreate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       update: (
         tenantSlug: string,
@@ -426,7 +521,7 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiDataSourceControllerUpdate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -434,29 +529,35 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string) =>
         platformApiToolControllerIndex({
           path: { tenant_slug: tenantSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       get: (tenantSlug: string, id: string) =>
         platformApiToolControllerShow({
           path: { tenant_slug: tenantSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, body: Record<string, unknown>) =>
         platformApiToolControllerCreate({
           path: { tenant_slug: tenantSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       update: (tenantSlug: string, id: string, body: Record<string, unknown>) =>
         platformApiToolControllerUpdate({
           path: { tenant_slug: tenantSlug, id },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       delete: (tenantSlug: string, id: string) =>
         platformApiToolControllerDelete({
           path: { tenant_slug: tenantSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
+        }),
+      testInvocation: (tenantSlug: string, id: string, body: Record<string, unknown>) =>
+        platformApiToolControllerTestInvocation({
+          path: { tenant_slug: tenantSlug, id },
+          body: body as never,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -464,13 +565,13 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string, datalakeSlug: string) =>
         platformApiGenericTableControllerIndex({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, datalakeSlug: string, body: CreateGenericTableRequest) =>
         platformApiGenericTableControllerCreate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -478,19 +579,19 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string) =>
         platformApiActionStatusUpdaterControllerIndex({
           path: { tenant_slug: tenantSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, body: CreateActionStatusUpdaterRequest) =>
         platformApiActionStatusUpdaterControllerCreate({
           path: { tenant_slug: tenantSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       update: (tenantSlug: string, id: string, body: CreateActionStatusUpdaterRequest) =>
         platformApiActionStatusUpdaterControllerUpdate({
           path: { tenant_slug: tenantSlug, id },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -498,29 +599,29 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string, datalakeSlug: string) =>
         platformApiAiAgentControllerIndex({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       get: (tenantSlug: string, datalakeSlug: string, id: string) =>
         platformApiAiAgentControllerShow({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, datalakeSlug: string, body: CreateAiAgentRequest) =>
         platformApiAiAgentControllerCreate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       update: (tenantSlug: string, datalakeSlug: string, id: string, body: CreateAiAgentRequest) =>
         platformApiAiAgentControllerUpdate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       delete: (tenantSlug: string, datalakeSlug: string, id: string) =>
         platformApiAiAgentControllerDelete({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -529,36 +630,36 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string, datalakeSlug: string) =>
         platformApiConnectedAppMgmtControllerIndex({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       get: (tenantSlug: string, datalakeSlug: string, id: string) =>
         platformApiConnectedAppMgmtControllerShow({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
         platformApiConnectedAppMgmtControllerCreate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       update: (tenantSlug: string, datalakeSlug: string, id: string, body: Record<string, unknown>) =>
         platformApiConnectedAppMgmtControllerUpdate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       syncRoutes: (tenantSlug: string, datalakeSlug: string, id: string) =>
         platformApiConnectedAppMgmtControllerSyncRoutes({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       // tenant-scoped runtime actions (by slug)
       resolvePage: (tenantSlug: string, slug: string, body: Record<string, unknown>) =>
         platformApiConnectedAppControllerResolvePage({
           path: { tenant_slug: tenantSlug, slug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       updateMessageTracking: (
         tenantSlug: string,
@@ -568,7 +669,7 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiConnectedAppControllerUpdateMessageTracking({
           path: { tenant_slug: tenantSlug, slug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -576,18 +677,18 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string, datalakeSlug: string) =>
         platformApiDataActivationClientControllerIndex({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       get: (tenantSlug: string, datalakeSlug: string, slug: string) =>
         platformApiDataActivationClientControllerShow({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
         platformApiDataActivationClientControllerCreate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       update: (
         tenantSlug: string,
@@ -598,17 +699,17 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiDataActivationClientControllerUpdate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       delete: (tenantSlug: string, datalakeSlug: string, slug: string) =>
         platformApiDataActivationClientControllerDelete({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       metadata: (tenantSlug: string, datalakeSlug: string, slug: string) =>
         platformApiDataActivationClientControllerMetadata({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       runManually: (
         tenantSlug: string,
@@ -619,7 +720,7 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiDataActivationClientControllerRunManually({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
           body: (body ?? {}) as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       ingest: (
         tenantSlug: string,
@@ -630,7 +731,7 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiDataActivationClientControllerIngest({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       ingestFile: (
         tenantSlug: string,
@@ -641,18 +742,18 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiDataActivationClientControllerIngestFile({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
           body,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       logs: {
         list: (tenantSlug: string, datalakeSlug: string, slug: string) =>
           platformApiDataActivationClientControllerLogsIndex({
             path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
         get: (tenantSlug: string, datalakeSlug: string, slug: string, id: string) =>
           platformApiDataActivationClientControllerLogShow({
             path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug, id },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
       },
     },
@@ -661,18 +762,18 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string, datalakeSlug: string) =>
         platformApiInteroperabilityContractControllerIndex({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       get: (tenantSlug: string, datalakeSlug: string, slug: string) =>
         platformApiInteroperabilityContractControllerShow({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
         platformApiInteroperabilityContractControllerCreate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       update: (
         tenantSlug: string,
@@ -683,17 +784,17 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiInteroperabilityContractControllerUpdate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       delete: (tenantSlug: string, datalakeSlug: string, slug: string) =>
         platformApiInteroperabilityContractControllerDelete({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       metadata: (tenantSlug: string, datalakeSlug: string, slug: string) =>
         platformApiInteroperabilityContractControllerMetadata({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       run: (
         tenantSlug: string,
@@ -704,7 +805,7 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiInteroperabilityContractControllerRun({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, slug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -713,7 +814,7 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiMdmControllerVerify({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
     },
 
@@ -722,18 +823,18 @@ export function createPlatformApi(config: ApiConfig) {
       list: (tenantSlug: string, datalakeSlug: string) =>
         platformApiAgenticWorkflowControllerIndex({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       get: (tenantSlug: string, datalakeSlug: string, id: string) =>
         platformApiAgenticWorkflowControllerShow({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       create: (tenantSlug: string, datalakeSlug: string, body: Record<string, unknown>) =>
         platformApiAgenticWorkflowControllerCreate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       update: (
         tenantSlug: string,
@@ -744,17 +845,17 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiAgenticWorkflowControllerUpdate({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       delete: (tenantSlug: string, datalakeSlug: string, id: string) =>
         platformApiAgenticWorkflowControllerDelete({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       metadata: (tenantSlug: string, datalakeSlug: string, id: string) =>
         platformApiAgenticWorkflowControllerMetadata({
           path: { tenant_slug: tenantSlug, datalake_slug: datalakeSlug, id },
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
 
       // Operations — tenant-scoped, addressed by workflow slug
@@ -762,40 +863,40 @@ export function createPlatformApi(config: ApiConfig) {
         platformApiAgenticWorkflowOperationsControllerExecute({
           path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
       run: (tenantSlug: string, workflowSlug: string, body: Record<string, unknown>) =>
         platformApiAgenticWorkflowOperationsControllerRunWorkflow({
           path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
           body: body as never,
-          throwOnError: true,
+          client: myClient, throwOnError: true,
         }),
 
       batchLogs: {
         list: (tenantSlug: string, workflowSlug: string) =>
           platformApiAgenticWorkflowOperationsControllerBatchLogsIndex({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
         get: (tenantSlug: string, workflowSlug: string, id: string) =>
           platformApiAgenticWorkflowOperationsControllerBatchLogShow({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
         start: (tenantSlug: string, workflowSlug: string, id: string) =>
           platformApiAgenticWorkflowOperationsControllerBatchLogStart({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
         stop: (tenantSlug: string, workflowSlug: string, id: string) =>
           platformApiAgenticWorkflowOperationsControllerBatchLogStop({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
         refresh: (tenantSlug: string, workflowSlug: string, id: string) =>
           platformApiAgenticWorkflowOperationsControllerBatchLogRefresh({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
       },
 
@@ -803,17 +904,25 @@ export function createPlatformApi(config: ApiConfig) {
         list: (tenantSlug: string, workflowSlug: string) =>
           platformApiAgenticWorkflowOperationsControllerWorkflowLogsIndex({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
-        get: (tenantSlug: string, workflowSlug: string, id: string) =>
+        get: (
+          tenantSlug: string,
+          workflowSlug: string,
+          id: string,
+          opts?: { dataAccessMode?: 'regulated' | 'unregulated' },
+        ) =>
           platformApiAgenticWorkflowOperationsControllerWorkflowLogShow({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
-            throwOnError: true,
+            ...(opts?.dataAccessMode
+              ? { query: { data_access_mode: opts.dataAccessMode } }
+              : {}),
+            client: myClient, throwOnError: true,
           }),
         download: (tenantSlug: string, workflowSlug: string, id: string) =>
           platformApiAgenticWorkflowOperationsControllerWorkflowLogDownload({
             path: { tenant_slug: tenantSlug, workflow_slug: workflowSlug, id },
-            throwOnError: true,
+            client: myClient, throwOnError: true,
           }),
       },
     },

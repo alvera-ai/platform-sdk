@@ -14,6 +14,7 @@ export {
   type CreateActionStatusUpdaterRequest,
   type CreateAiAgentRequest,
   type CreateGenericTableRequest,
+  createIsolatedPlatformApi,
   createPlatformApi,
   createSession,
   type CreateSessionParams,

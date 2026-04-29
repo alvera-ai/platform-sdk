@@ -13,6 +13,40 @@ npm install @alvera-ai/platform-sdk
 pnpm add @alvera-ai/platform-sdk
 ```
 
+## TypeScript configuration
+
+The SDK uses [`@hey-api/client-fetch`](https://heyapi.dev/openapi-ts/clients/fetch),
+whose generated code references WHATWG fetch types — `BodyInit`,
+`RequestInit`, `Headers`, `FormData`, etc. Those names live in
+`lib.dom.d.ts`, not `@types/node`, so a Node-only consumer with
+`"lib": ["ES2022"]` in its `tsconfig.json` will see errors like
+`Cannot find name 'BodyInit'` when typechecking.
+
+The fix is to add `DOM` and `DOM.Iterable` to your `lib`:
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    //               ^^^^^^^^^^^^^^^^^^^^^^^
+    // Required by @hey-api/client-fetch — see
+    //   https://github.com/hey-api/openapi-ts/issues/2539
+    // Provides type-only declarations for fetch globals.
+    // Adds NOTHING to the runtime — Node 18+ provides real fetch
+    // independently of these types.
+  }
+}
+```
+
+This is the workaround documented in hey-api's open issue
+[#2539](https://github.com/hey-api/openapi-ts/issues/2539); when
+the upstream fix lands and emits self-contained types, you can
+drop the `DOM` lib entries again.
+
+Browser consumers (React, Vue, Next, Nuxt, Remix) already have
+`DOM` and `DOM.Iterable` enabled by default — no change needed.
+
 ## Quick start
 
 ```ts
