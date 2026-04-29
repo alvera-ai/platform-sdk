@@ -1,0 +1,12 @@
+node_modules/
+coverage/
+.vitest-cache/
+
+# Bootstrap-generated state files (per industry). Regenerated automatically
+# by vitest.setup.ts on first run; safe to delete to force a fresh bootstrap.
+vitest-state/
+
+# Per-developer env overrides. dev.env is committed; everything else is local.
+local.env
+demo.env
+prod.env

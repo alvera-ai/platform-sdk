@@ -2,6 +2,7 @@ node_modules
 dist
 src/generated
 src/environments.generated.ts
+integration-tests/vitest-state
 *.log
 .DS_Store
 .env

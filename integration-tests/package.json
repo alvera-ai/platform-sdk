@@ -1,0 +1,38 @@
+{
+  "name": "@alvera/integration-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Vitest-based HTTP integration tests against the Phoenix dev server, complementing playwright-e2e.",
+  "scripts": {
+    "test": "pnpm test:healthcare && pnpm test:accounts_receivable && pnpm test:payment_risk",
+    "test:healthcare": "vitest run tests/healthcare",
+    "test:accounts_receivable": "vitest run tests/accounts_receivable",
+    "test:payment_risk": "vitest run tests/payment_risk",
+
+    "test:watch:healthcare": "vitest tests/healthcare",
+    "test:watch:accounts_receivable": "vitest tests/accounts_receivable",
+    "test:watch:payment_risk": "vitest tests/payment_risk",
+
+    "state:create": "pnpm state:create:healthcare && pnpm state:create:accounts_receivable && pnpm state:create:payment_risk",
+    "state:create:healthcare": "tsx scripts/state-create.ts healthcare",
+    "state:create:accounts_receivable": "tsx scripts/state-create.ts accounts_receivable",
+    "state:create:payment_risk": "tsx scripts/state-create.ts payment_risk",
+
+    "state:clear": "pnpm state:clear:healthcare && pnpm state:clear:accounts_receivable && pnpm state:clear:payment_risk",
+    "state:clear:healthcare": "tsx scripts/state-clear.ts healthcare",
+    "state:clear:accounts_receivable": "tsx scripts/state-clear.ts accounts_receivable",
+    "state:clear:payment_risk": "tsx scripts/state-clear.ts payment_risk",
+
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@alvera-ai/platform-sdk": "link:.."
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,38 @@
+{% comment %}CAHPS Appointments → FHIR R4 Patient attrs{% endcomment %}
+{% comment %}Parent appointment filtering is handled by filter_template{% endcomment %}
+{% assign p = msg %}
+{
+  "active": true,
+  "gender": "unknown",
+  {% if p.patientdob %}"birth_date": "{{ p.patientdob | parse_date: "{M}/{D}/{YYYY}" }}",{% endif %}
+  "identifier": [
+    {
+      "system": "urn:{{ p.source_uri }}:patient-id",
+      "value": "{{ p.patient_id | default: "" }}"
+    }{% if p.enterprise_id and p.enterprise_id != "" %},
+    {
+      "system": "urn:{{ p.source_uri }}:enterprise-id",
+      "value": "{{ p.enterprise_id }}"
+    }{% endif %}
+  ],
+  {% if p.patient_name %}"name": [
+    {
+      "use": "official",
+      {% assign space_parts = p.patient_name | split: " " %}
+      {% if space_parts.size > 1 %}
+      "given": ["{{ space_parts | first }}"],
+      "family": "{{ space_parts | last }}"
+      {% else %}
+      "family": "{{ p.patient_name | strip }}"
+      {% endif %}
+    }
+  ],{% endif %}
+  {% if p.patient_mobile_no and p.patient_mobile_no != "" %}"telecom": [
+    {
+      "system": "phone",
+      "value": "{{ p.patient_mobile_no }}",
+      "use": "mobile"
+    }
+  ],{% endif %}
+  "source_uri": "{{ p.source_uri | default: "" }}"
+}
