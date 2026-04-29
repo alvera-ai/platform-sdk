@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.6.0](https://github.com/alvera-ai/platform-sdk/compare/v0.5.4...v0.6.0) (2026-04-29)
+
+
+### Features
+
+* add createIsolatedPlatformApi for per-instance Client mode ([dc85252](https://github.com/alvera-ai/platform-sdk/commit/dc852525b5fc9da73ac12659467e4f882a2cb29f))
+* add createTenantlessSession() for admin/bootstrap flows (refs [#21](https://github.com/alvera-ai/platform-sdk/issues/21)) ([7d055a7](https://github.com/alvera-ai/platform-sdk/commit/7d055a796272dac2b8057ef1976ffb3a33684b55))
+* api.invitations.list() — GET /api/v1/invitations (refs [#21](https://github.com/alvera-ai/platform-sdk/issues/21)) ([75bf657](https://github.com/alvera-ai/platform-sdk/commit/75bf6574288f16981708351b240ab12f2712f620))
+* createSession supports tenantless Bearer (refs [#21](https://github.com/alvera-ai/platform-sdk/issues/21)) ([54145e4](https://github.com/alvera-ai/platform-sdk/commit/54145e4dcc3810124682ed28d12284331556acff))
+* **datasets:** expose user_search_id + data_access_mode on datasets.search ([e304650](https://github.com/alvera-ai/platform-sdk/commit/e30465034991ec221a861c85ccc5e31600dfdb9a))
+* GH-667 expose tool test-invocation endpoint ([326739f](https://github.com/alvera-ai/platform-sdk/commit/326739f2b36e9f8418218b1b85fbd18f7c2c26dd))
+* regen + dataAccessMode opt for workflowLogs.get ([dfdd73d](https://github.com/alvera-ai/platform-sdk/commit/dfdd73d2ba3811201e4cda0315e6f44ef91fd912))
+* regen for POST /datalakes/:slug/migrate (async via Oban) ([d9a9514](https://github.com/alvera-ai/platform-sdk/commit/d9a95143342d8d609d70c727e804f799921d2e17))
+* regen for required llm_response_schema (GH-667) ([e4e2af8](https://github.com/alvera-ai/platform-sdk/commit/e4e2af8025f64e2fcbce8ff333de747072745064))
+
+
+### Bug Fixes
+
+* **cli:** handle nullable session.tenant after SessionResult shape change ([56ef174](https://github.com/alvera-ai/platform-sdk/commit/56ef1743d5239cd1eb8dbdf5fe6d9c0a3bf41f2f))
+* expose self-bootstrap endpoints in client.ts (closes [#21](https://github.com/alvera-ai/platform-sdk/issues/21)) ([55c1824](https://github.com/alvera-ai/platform-sdk/commit/55c1824d2dace59f924226dc2cb325b1e88ce734))
+
 ## [0.5.4](https://github.com/alvera-ai/platform-sdk/compare/v0.5.3...v0.5.4) (2026-04-24)
 
 
