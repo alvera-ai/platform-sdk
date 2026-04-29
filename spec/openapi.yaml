@@ -3740,6 +3740,7 @@ components:
         - temperature
         - max_tokens
         - input_schema
+        - llm_response_schema
         - enabled
         - prompt_config
       title: AiAgentRequest
@@ -5192,6 +5193,7 @@ components:
         - temperature
         - max_tokens
         - input_schema
+        - llm_response_schema
         - enabled
         - prompt_config
       title: MinimalAiAgentResponse
@@ -10686,6 +10688,7 @@ components:
         - temperature
         - max_tokens
         - input_schema
+        - llm_response_schema
         - enabled
         - prompt_config
       title: AiAgentResponse
