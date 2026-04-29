@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/alvera-ai/platform-sdk/compare/v0.6.0...v0.7.0) (2026-04-29)
+
+
+### Features
+
+* import integration-tests as canonical playbook ([d5f793e](https://github.com/alvera-ai/platform-sdk/commit/d5f793e65617a014d9fc69ac6a04d2306d6a0380))
+* import integration-tests as canonical playbook ([#24](https://github.com/alvera-ai/platform-sdk/issues/24)) ([e9b0b82](https://github.com/alvera-ai/platform-sdk/commit/e9b0b82291309d87447067a9f10719d8b1dba629))
+
 ## [0.6.0](https://github.com/alvera-ai/platform-sdk/compare/v0.5.4...v0.6.0) (2026-04-29)
 
 
