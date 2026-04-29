@@ -1,0 +1,47 @@
+{% comment %}CAHPS Appointments → FHIR R4 Appointment attrs{% endcomment %}
+{% comment %}Parent appointment filtering is handled by filter_template{% endcomment %}
+{% assign a = msg %}
+{
+  {% if a.appt_slot_status %}
+  {% assign raw_status = a.appt_slot_status | downcase | strip %}
+  {% if raw_status == "2 - checked in" %}
+  "status": "arrived"
+  {% elsif raw_status == "3 - checked out" or raw_status == "4 - charge entered" %}
+  "status": "fulfilled"
+  {% elsif raw_status == "f - filled" %}
+  "status": "booked"
+  {% elsif raw_status == "o - open slot" %}
+  "status": "pending"
+  {% elsif raw_status == "x - cancelled" %}
+  "status": "cancelled"
+  {% endif %}
+  {% endif %},
+  {% if a.appt_date %}"start": "{{ a.appt_date | parse_date: "{M}/{D}/{YYYY}" }}{% if a.appt_start_time %}T{{ a.appt_start_time | convert_time: "{h12}:{m} {am}" }}{% endif %}{{ a.timezone | tz_offset }}",{% endif %}
+  {% if a.appt_slot_duration and a.appt_slot_duration != "" %}"minutes_duration": {{ a.appt_slot_duration }},{% endif %}
+  {% if a.appt_type and a.appt_type != "" %}"description": "{{ a.appt_type }}",{% endif %}
+  "identifier": [
+    {
+      "system": "urn:{{ a.source_uri }}:appointment-id",
+      "value": "{{ a.appointment_id | default: "" }}"
+    }
+  ],
+  "participants": [
+    {% if a.svc_department and a.svc_department != "" %}
+    {
+      "actor_type": "location",
+      "actor_id": "{{ a.svc_department }}",
+      "required": "required",
+      "status": "accepted"
+    }{% if a.rndrng_provider_id and a.rndrng_provider_id != "" %},{% endif %}
+    {% endif %}
+    {% if a.rndrng_provider_id and a.rndrng_provider_id != "" %}
+    {
+      "actor_type": "practitioner",
+      "actor_id": "{{ a.rndrng_provider_id }}",
+      "required": "required",
+      "status": "accepted"
+    }
+    {% endif %}
+  ],
+  "source_uri": "{{ a.source_uri | default: "" }}"
+}

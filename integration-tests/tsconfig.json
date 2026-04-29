@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // DOM + DOM.Iterable required by @hey-api/client-fetch — provides
+    // type-only declarations for BodyInit / RequestInit / Headers /
+    // FormData. See hey-api/openapi-ts#2539. Adds nothing to the
+    // runtime — Vitest/Node 18+ provide real fetch independently.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*", "vitest.config.ts", "vitest.setup.ts"]
+}
