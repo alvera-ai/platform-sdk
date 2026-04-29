@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/alvera-ai/platform-sdk/compare/v0.7.1...v0.7.2) (2026-04-29)
+
+
+### Bug Fixes
+
+* GH-30 stub accounts_receivable + payment_risk + vitest 4 poolOptions ([5142c60](https://github.com/alvera-ai/platform-sdk/commit/5142c606fa3bb8d5652a090c67c8beaecdd3d777)), closes [#30](https://github.com/alvera-ai/platform-sdk/issues/30)
+
 ## [0.7.1](https://github.com/alvera-ai/platform-sdk/compare/v0.7.0...v0.7.1) (2026-04-29)
 
 
