@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1](https://github.com/alvera-ai/platform-sdk/compare/v0.7.0...v0.7.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* GH-27 upgrade vitest to ^4.0.0 + vite ^6.4.2 (security) ([9f9e46d](https://github.com/alvera-ai/platform-sdk/commit/9f9e46d05cec4b36f4a1d14c02aed1d4e3e50830))
+* upgrade vitest to ^4.0.0 + vite ^6.4.2 (Dependabot security) ([0d7697d](https://github.com/alvera-ai/platform-sdk/commit/0d7697d3a967f54455a18e32ac3cc5887b373349))
+
 ## [0.7.0](https://github.com/alvera-ai/platform-sdk/compare/v0.6.0...v0.7.0) (2026-04-29)
 
 
