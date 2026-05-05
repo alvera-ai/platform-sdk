@@ -1,6 +1,6 @@
 {
   "name": "@alvera-ai/platform-sdk",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Typed SDK for the Alvera platform API — manage data sources, tools, generic tables, AI agents, and action status updaters.",
   "type": "module",
   "sideEffects": false,

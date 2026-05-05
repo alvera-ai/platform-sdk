@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.3](https://github.com/alvera-ai/platform-sdk/compare/v0.7.2...v0.7.3) (2026-05-05)
+
+
+### Bug Fixes
+
+* GH-34 make session schema fields optional in codegen patches ([fc742ad](https://github.com/alvera-ai/platform-sdk/commit/fc742ad3fe182d35f4edeec730f33af00d8715d4))
+* GH-34 sync OpenAPI spec and fix session schema nullability ([c6907da](https://github.com/alvera-ai/platform-sdk/commit/c6907da6deb298b052a95cc76fcadc379984a1d0))
+* GH-34 sync OpenAPI spec from live server and update Ollama model ([01e8078](https://github.com/alvera-ai/platform-sdk/commit/01e80781ed37f7178cbb3c9ff6b8443f943ad4cf))
+
 ## [0.7.2](https://github.com/alvera-ai/platform-sdk/compare/v0.7.1...v0.7.2) (2026-04-29)
 
 
