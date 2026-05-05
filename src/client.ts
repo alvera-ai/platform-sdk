@@ -372,6 +372,27 @@ export function createIsolatedPlatformApi(config: ApiConfig): PlatformApi {
   return _buildApi(createClient({ baseUrl, headers }));
 }
 
+export function createUnvalidatedPlatformApi(config: ApiConfig): PlatformApi {
+  const baseUrl = config.baseUrl.replace(/\/$/, '');
+  const headers = { Authorization: `Bearer ${config.sessionToken}` };
+  const inner = createClient({ baseUrl, headers });
+  const strip = (options: Record<string, unknown>) => {
+    const { responseValidator: _, ...rest } = options;
+    return rest;
+  };
+  const unvalidated = new Proxy(inner, {
+    get(target, prop, receiver) {
+      const val = Reflect.get(target, prop, receiver);
+      if (typeof val === 'function' && typeof prop === 'string' &&
+          ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'request'].includes(prop)) {
+        return (options: Record<string, unknown>) => val.call(target, strip(options));
+      }
+      return val;
+    },
+  }) as Client;
+  return _buildApi(unvalidated);
+}
+
 function _buildApi(myClient: Client) {
   return {
     ping: () =>

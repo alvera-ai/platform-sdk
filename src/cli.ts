@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command, Option } from 'commander';
 import { ValiError } from 'valibot';
-import { createPlatformApi, createSession, revokeSession } from './client.js';
+import { createUnvalidatedPlatformApi, createSession, revokeSession } from './client.js';
 
 const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
 const { version: packageVersion } = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
@@ -105,7 +105,7 @@ function authedApi(opts: GlobalOpts) {
         `Run \`alvera login --profile ${profile}\` to refresh.`,
     );
   }
-  return { api: createPlatformApi({ baseUrl: resolved.baseUrl, sessionToken: resolved.sessionToken }), resolved };
+  return { api: createUnvalidatedPlatformApi({ baseUrl: resolved.baseUrl, sessionToken: resolved.sessionToken }), resolved };
 }
 
 async function run(fn: () => Promise<unknown>): Promise<void> {
@@ -360,6 +360,64 @@ const bodyOption = (cmd: Command): Command =>
   cmd
     .option('--body <json>', 'request body as a JSON string')
     .option('--body-file <path>', 'path to a JSON file (or "-" for stdin)');
+
+// -- raw (escape hatch) -----------------------------------------------------
+const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+
+bodyOption(
+  program
+    .command('raw <method> <path>')
+    .description('Send an authenticated HTTP request bypassing SDK validation')
+    .option('--no-parse', 'print raw response text instead of pretty-printing JSON'),
+)
+  .action(
+    async (
+      method: string,
+      path: string,
+      opts: { body?: string; bodyFile?: string; parse?: boolean },
+    ) => {
+      const upper = method.toUpperCase();
+      if (!ALLOWED_METHODS.includes(upper as (typeof ALLOWED_METHODS)[number])) {
+        die(`invalid method "${method}". Allowed: ${ALLOWED_METHODS.join(', ')}`);
+      }
+
+      const globalOpts = program.opts<GlobalOpts>();
+      const profile = getProfileName(globalOpts.profile);
+      const resolved = resolveProfile(profile);
+      if (!resolved.sessionToken) {
+        die(`no session token for profile "${profile}". Run \`alvera login\` first.`);
+      }
+
+      const url = `${resolved.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${resolved.sessionToken}`,
+      };
+
+      let fetchBody: string | undefined;
+      if (opts.body || opts.bodyFile) {
+        const parsed = readBody(opts.body, opts.bodyFile);
+        fetchBody = JSON.stringify(parsed);
+        headers['Content-Type'] = 'application/json';
+      }
+
+      const resp = await fetch(url, { method: upper, headers, body: fetchBody });
+      const text = await resp.text();
+
+      if (!resp.ok) {
+        die(`${upper} ${path} → ${resp.status} ${resp.statusText}: ${text}`);
+      }
+
+      if (opts.parse === false) {
+        process.stdout.write(text + '\n');
+      } else {
+        try {
+          out(JSON.parse(text));
+        } catch {
+          process.stdout.write(text + '\n');
+        }
+      }
+    },
+  );
 
 // -- datalakes --------------------------------------------------------------
 const datalakes = program.command('datalakes').description('Manage datalakes');
@@ -636,6 +694,7 @@ datasets
   .command('search <dataset>')
   .description('Search a dataset (e.g. patient, member)')
   .option('--datalake-id <id>', 'restrict to a specific datalake')
+  .option('--data-access-mode <mode>', 'regulated or unregulated')
   .option('--page <n>', 'page number', (v) => Number(v))
   .option('--page-size <n>', 'results per page (max 100)', (v) => Number(v))
   .action(async (dataset: string, opts: Record<string, unknown>) => {
@@ -643,6 +702,7 @@ datasets
       const { api } = authedApi(program.opts<GlobalOpts>());
       const { data } = await api.datasets.search(dataset, {
         datalakeId: opts.datalakeId as string | undefined,
+        dataAccessMode: opts.dataAccessMode as 'regulated' | 'unregulated' | undefined,
         page: opts.page as number | undefined,
         pageSize: opts.pageSize as number | undefined,
       });
@@ -1356,13 +1416,17 @@ workflows
 workflows
   .command('workflow-log <workflow-slug> <id> [tenant]')
   .description('Get a single execution log by id')
-  .action(async (workflowSlug: string, id: string, tenant: string | undefined) => {
+  .option('--data-access-mode <mode>', 'regulated or unregulated')
+  .action(async (workflowSlug: string, id: string, tenant: string | undefined, opts: Record<string, string>) => {
     await run(async () => {
       const { api, resolved } = authedApi(program.opts<GlobalOpts>());
       const { data } = await api.workflows.workflowLogs.get(
         resolveTenant(tenant, resolved.tenantSlug),
         workflowSlug,
         id,
+        opts.dataAccessMode
+          ? { dataAccessMode: opts.dataAccessMode as 'regulated' | 'unregulated' }
+          : undefined,
       );
       return data;
     });

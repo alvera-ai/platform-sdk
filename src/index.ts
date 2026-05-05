@@ -16,6 +16,7 @@ export {
   type CreateGenericTableRequest,
   createIsolatedPlatformApi,
   createPlatformApi,
+  createUnvalidatedPlatformApi,
   createSession,
   type CreateSessionParams,
   type DataActivationClientListResponse,
