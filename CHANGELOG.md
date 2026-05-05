@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0](https://github.com/alvera-ai/platform-sdk/compare/v0.7.3...v0.8.0) (2026-05-05)
+
+
+### Features
+
+* add CLI raw command, --data-access-mode flags, and CLI integration tests ([cecce33](https://github.com/alvera-ai/platform-sdk/commit/cecce3332ba4acdcb8079beb6930060bc9a61fba))
+* add integration tests for workflow/DAC browse methods and fix CLI API-key auth ([769787a](https://github.com/alvera-ai/platform-sdk/commit/769787a01a28038c0d4e00d1ab489116b0d560a8))
+* add X-API-Key auth support to SDK and CLI ([06ae9c0](https://github.com/alvera-ai/platform-sdk/commit/06ae9c06aa97919c77eeb90734474a639b1fa086))
+* CLI parity, raw command, API-key auth, and [#38](https://github.com/alvera-ai/platform-sdk/issues/38) integration tests ([89dfa87](https://github.com/alvera-ai/platform-sdk/commit/89dfa878e6ba22149e62d53c9d18195a759954b2))
+
+
+### Bug Fixes
+
+* clear stale API key on login to prevent auth shadowing ([dac94f1](https://github.com/alvera-ai/platform-sdk/commit/dac94f1035cbe29873f58cb03ad7c53964b29804))
+* correct CLI test assertions for response shapes and stale IDs ([bc67761](https://github.com/alvera-ai/platform-sdk/commit/bc67761c90c807f1ff435847470b53240052f6c3))
+* widen v.optional to v.nullish in generated valibot validators ([259826c](https://github.com/alvera-ai/platform-sdk/commit/259826cb620c617094619b674570a7be47d39c5c))
+
 ## [0.7.3](https://github.com/alvera-ai/platform-sdk/compare/v0.7.2...v0.7.3) (2026-05-05)
 
 
