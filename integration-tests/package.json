@@ -10,6 +10,8 @@
     "test:accounts_receivable": "vitest run tests/accounts_receivable",
     "test:payment_risk": "vitest run tests/payment_risk",
 
+    "test:cli": "vitest run --config vitest.cli.config.ts",
+
     "test:watch:healthcare": "vitest tests/healthcare",
     "test:watch:accounts_receivable": "vitest tests/accounts_receivable",
     "test:watch:payment_risk": "vitest tests/payment_risk",

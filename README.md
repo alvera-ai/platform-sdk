@@ -145,21 +145,26 @@ Adding, renaming, or removing environments happens in the platform repo (the
 
 ## Resources
 
-| Resource                | Operations                                  |
-|-------------------------|---------------------------------------------|
-| `ping`                   | health check                                                                 |
-| `sessions`               | `verify`                                                                     |
-| `datasets`               | `search`                                                                     |
-| `datalakes`              | `list`, `get`, `create`                                                      |
-| `dataSources`            | `list`, `create`, `update`                                                   |
-| `tools`                  | `list`, `get`, `create`, `update`, `delete`                                  |
-| `genericTables`          | `list`, `create`                                                             |
-| `actionStatusUpdaters`   | `list`, `create`, `update`                                                   |
-| `aiAgents`               | `list`, `get`, `create`, `update`, `delete`                                  |
-| `connectedApps`          | `list`, `get`, `create`, `update`, `syncRoutes`, `resolvePage`, `updateMessageTracking` |
-| `dataActivationClients`  | `ingest`, `ingestFile`, `createUploadLink`                                   |
-| `mdm`                    | `verify`                                                                     |
-| `workflows`              | `execute`                                                                    |
+| Resource                     | Operations                                                                                                                                  |
+|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `ping`                       | health check                                                                                                                                |
+| `sessions`                   | `verify`                                                                                                                                    |
+| `auth`                       | `signUp`                                                                                                                                    |
+| `admin`                      | `confirmUser`                                                                                                                               |
+| `tenants`                    | `list`, `create`                                                                                                                            |
+| `invitations`                | `list`, `create`, `accept`                                                                                                                  |
+| `datasets`                   | `search`, `metadata`, `createUserSearch`                                                                                                    |
+| `datalakes`                  | `list`, `get`, `create`, `metadata`, `migrate`, `createUploadLink`, `createDownloadLink`                                                    |
+| `dataSources`                | `list`, `create`, `update`                                                                                                                  |
+| `tools`                      | `list`, `get`, `create`, `update`, `delete`, `testInvocation`                                                                               |
+| `genericTables`              | `list`, `create`                                                                                                                            |
+| `actionStatusUpdaters`       | `list`, `create`, `update`                                                                                                                  |
+| `aiAgents`                   | `list`, `get`, `create`, `update`, `delete`                                                                                                 |
+| `connectedApps`              | `list`, `get`, `create`, `update`, `syncRoutes`, `resolvePage`, `updateMessageTracking`                                                     |
+| `dataActivationClients`      | `list`, `get`, `create`, `update`, `delete`, `metadata`, `runManually`, `ingest`, `ingestFile`, `logs.list`, `logs.get`                     |
+| `interoperabilityContracts`  | `list`, `get`, `create`, `update`, `delete`, `metadata`, `run`                                                                              |
+| `mdm`                        | `verify`                                                                                                                                    |
+| `workflows`                  | `list`, `get`, `create`, `update`, `delete`, `metadata`, `execute`, `run`, `workflowLogs.list/get/download`, `batchLogs.list/get/start/stop/refresh` |
 
 Tenant and datalake provisioning are performed by Alvera admins — contact your
 representative to onboard a new tenant.

@@ -18,5 +18,5 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src/**/*", "tests/**/*", "scripts/**/*", "vitest.config.ts", "vitest.setup.ts"]
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*", "vitest.config.ts", "vitest.cli.config.ts", "vitest.setup.ts"]
 }

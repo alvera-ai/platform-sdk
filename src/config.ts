@@ -23,6 +23,7 @@ export interface ProfileConfig {
 export interface ProfileCreds {
   session_token?: string;
   expires_at?: string;
+  api_key?: string;
 }
 
 export interface ResolvedProfile {
@@ -33,6 +34,7 @@ export interface ResolvedProfile {
   email: string | null;
   sessionToken: string | null;
   expiresAt: string | null;
+  apiKey: string | null;
 }
 
 function isEnvironmentName(name: string): name is EnvironmentName {
@@ -195,6 +197,8 @@ export function resolveProfile(profile: string): ResolvedProfile {
     sessionToken:
       process.env.ALVERA_SESSION_TOKEN ?? creds.session_token ?? null,
     expiresAt: creds.expires_at ?? null,
+    apiKey:
+      process.env.ALVERA_API_KEY ?? creds.api_key ?? null,
   };
 }
 
