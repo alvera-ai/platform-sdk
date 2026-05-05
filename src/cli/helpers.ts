@@ -67,10 +67,18 @@ export function resolveTenant(explicit: string | undefined, profileTenant: strin
 export function authedApi(opts: GlobalOpts) {
   const profile = getProfileName(opts.profile);
   const resolved = resolveProfile(profile);
+
+  if (resolved.apiKey) {
+    return {
+      api: createUnvalidatedPlatformApi({ baseUrl: resolved.baseUrl, apiKey: resolved.apiKey }),
+      resolved,
+    };
+  }
+
   if (!resolved.sessionToken) {
     die(
-      `no session token for profile "${profile}". ` +
-        `Run \`alvera login --profile ${profile}\` or set ALVERA_SESSION_TOKEN.`,
+      `no credentials for profile "${profile}". ` +
+        `Run \`alvera login --profile ${profile}\`, set ALVERA_SESSION_TOKEN, or set ALVERA_API_KEY.`,
     );
   }
   if (resolved.expiresAt && new Date(resolved.expiresAt) < new Date()) {
@@ -79,7 +87,10 @@ export function authedApi(opts: GlobalOpts) {
         `Run \`alvera login --profile ${profile}\` to refresh.`,
     );
   }
-  return { api: createUnvalidatedPlatformApi({ baseUrl: resolved.baseUrl, sessionToken: resolved.sessionToken }), resolved };
+  return {
+    api: createUnvalidatedPlatformApi({ baseUrl: resolved.baseUrl, sessionToken: resolved.sessionToken }),
+    resolved,
+  };
 }
 
 export async function run(fn: () => Promise<unknown>): Promise<void> {

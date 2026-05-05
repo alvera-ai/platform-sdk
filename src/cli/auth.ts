@@ -129,7 +129,22 @@ export function register(program: Command): void {
         email: resolved.email,
         hasSessionToken: Boolean(resolved.sessionToken),
         expiresAt: resolved.expiresAt,
+        hasApiKey: Boolean(resolved.apiKey),
       });
+    });
+
+  program
+    .command('set-api-key')
+    .description('Store an API key for the current profile (used instead of session token)')
+    .argument('[key]', 'API key (omit to read from prompt or ALVERA_API_KEY)')
+    .action(async (key?: string) => {
+      const profile = getProfileName(program.opts<GlobalOpts>().profile);
+      const apiKey = key ?? process.env.ALVERA_API_KEY ?? (await prompt('API key: ', { hidden: true }));
+      if (!apiKey) die('API key is required');
+      writeProfileCreds(profile, { api_key: apiKey });
+      process.stderr.write(
+        `API key stored for profile "${profile}" → ${CONFIG_PATHS.credentials}\n`,
+      );
     });
 
   program

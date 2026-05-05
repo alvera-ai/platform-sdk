@@ -317,10 +317,9 @@ export async function revokeSession(): Promise<void> {
 // Config
 // ---------------------------------------------------------------------------
 
-export interface ApiConfig {
-  baseUrl: string;
-  sessionToken: string;
-}
+export type ApiConfig =
+  | { baseUrl: string; sessionToken: string }
+  | { baseUrl: string; apiKey: string };
 
 // ---------------------------------------------------------------------------
 // Factories — two named entry points
@@ -359,23 +358,25 @@ export interface DatasetMetadataOptions {
   genericTableId?: string;
 }
 
+function authHeaders(config: ApiConfig): Record<string, string> {
+  if ('apiKey' in config) return { 'X-API-Key': config.apiKey };
+  return { Authorization: `Bearer ${config.sessionToken}` };
+}
+
 export function createPlatformApi(config: ApiConfig): PlatformApi {
   const baseUrl = config.baseUrl.replace(/\/$/, '');
-  const headers = { Authorization: `Bearer ${config.sessionToken}` };
-  client.setConfig({ baseUrl, headers });
+  client.setConfig({ baseUrl, headers: authHeaders(config) });
   return _buildApi(client);
 }
 
 export function createIsolatedPlatformApi(config: ApiConfig): PlatformApi {
   const baseUrl = config.baseUrl.replace(/\/$/, '');
-  const headers = { Authorization: `Bearer ${config.sessionToken}` };
-  return _buildApi(createClient({ baseUrl, headers }));
+  return _buildApi(createClient({ baseUrl, headers: authHeaders(config) }));
 }
 
 export function createUnvalidatedPlatformApi(config: ApiConfig): PlatformApi {
   const baseUrl = config.baseUrl.replace(/\/$/, '');
-  const headers = { Authorization: `Bearer ${config.sessionToken}` };
-  const inner = createClient({ baseUrl, headers });
+  const inner = createClient({ baseUrl, headers: authHeaders(config) });
   const strip = (options: Record<string, unknown>) => {
     const { responseValidator: _, ...rest } = options;
     return rest;
