@@ -134,6 +134,18 @@ describe('healthcare/create-dac', () => {
     expect(data.slug).toBe(s.dacSlug)
   })
 
+  // ─── §3a GET DAC metadata ───────────────────────────────────────────
+  it('§3a GET DAC metadata returns dataset metadata', async () => {
+    if (!s.dacSlug) throw new Error('§2 must succeed first')
+
+    const { data } = await api.dataActivationClients.metadata(
+      bootstrap.tenantSlug!,
+      bootstrap.datalakeSlug!,
+      s.dacSlug,
+    )
+    expect(data).toBeDefined()
+  })
+
   // ─── §4 the DAC appears in the listing ────────────────────────────────
   it('§4 DAC appears in listing', async () => {
     if (!s.dacId) throw new Error('§2 must succeed first')

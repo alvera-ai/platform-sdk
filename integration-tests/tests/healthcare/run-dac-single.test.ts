@@ -199,6 +199,49 @@ describe('healthcare/run-dac', () => {
     }
   })
 
+  // ─── §3a logs.get — fetch a specific DAC log entry by id ──────────────
+  it('§3a logs.get returns a specific log entry', { timeout: 90_000 }, async () => {
+    if (!s.lastBatchId) throw new Error('§2 must succeed first')
+
+    const deadline = Date.now() + 60_000
+    let logId: string | null = null
+    while (Date.now() < deadline && !logId) {
+      const { data } = await api.dataActivationClients.logs.list(
+        bootstrap.tenantSlug!,
+        bootstrap.datalakeSlug!,
+        createDac.dacSlug!,
+      )
+      const ourRow = (data.data ?? [])
+        .map((row) => row as Record<string, unknown>)
+        .find((r) => r.batch_id === s.lastBatchId)
+      if (ourRow?.id) {
+        logId = ourRow.id as string
+        break
+      }
+      await new Promise((r) => setTimeout(r, 1_000))
+    }
+    if (!logId) throw new Error(`no log row found for batch ${s.lastBatchId}`)
+
+    const { data: logEntry } = await api.dataActivationClients.logs.get(
+      bootstrap.tenantSlug!,
+      bootstrap.datalakeSlug!,
+      createDac.dacSlug!,
+      logId,
+    )
+    expect((logEntry as Record<string, unknown>).id).toBe(logId)
+    expect((logEntry as Record<string, unknown>).batch_id).toBe(s.lastBatchId)
+  })
+
+  // ─── §3b runManually — trigger a manual DAC run ──────────────────────
+  it('§3b runManually triggers a DAC execution', async () => {
+    const { data } = await api.dataActivationClients.runManually(
+      bootstrap.tenantSlug!,
+      bootstrap.datalakeSlug!,
+      createDac.dacSlug!,
+    )
+    expect(data).toBeDefined()
+  })
+
   // ─── §4 patient row reachable via two-step search (POST → GET) ─────────
   // Two-step claims pattern:
   //   (1) POST /datasets/patient/user-searches with a WHERE clause that

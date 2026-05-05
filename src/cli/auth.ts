@@ -141,9 +141,11 @@ export function register(program: Command): void {
       const profile = getProfileName(program.opts<GlobalOpts>().profile);
       const apiKey = key ?? process.env.ALVERA_API_KEY ?? (await prompt('API key: ', { hidden: true }));
       if (!apiKey) die('API key is required');
+      clearProfileCreds(profile);
       writeProfileCreds(profile, { api_key: apiKey });
       process.stderr.write(
-        `API key stored for profile "${profile}" → ${CONFIG_PATHS.credentials}\n`,
+        `API key stored for profile "${profile}" → ${CONFIG_PATHS.credentials}\n` +
+          `(session token cleared)\n`,
       );
     });
 

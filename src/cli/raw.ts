@@ -25,14 +25,17 @@ export function register(program: Command): void {
         const globalOpts = program.opts<GlobalOpts>();
         const profile = getProfileName(globalOpts.profile);
         const resolved = resolveProfile(profile);
-        if (!resolved.sessionToken) {
-          die(`no session token for profile "${profile}". Run \`alvera login\` first.`);
+        if (!resolved.sessionToken && !resolved.apiKey) {
+          die(
+            `no credentials for profile "${profile}". ` +
+              `Run \`alvera login\`, set ALVERA_SESSION_TOKEN, or set ALVERA_API_KEY.`,
+          );
         }
 
         const url = `${resolved.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-        const headers: Record<string, string> = {
-          Authorization: `Bearer ${resolved.sessionToken}`,
-        };
+        const headers: Record<string, string> = resolved.apiKey
+          ? { 'X-API-Key': resolved.apiKey }
+          : { Authorization: `Bearer ${resolved.sessionToken!}` };
 
         let fetchBody: string | undefined;
         if (opts.body || opts.bodyFile) {
