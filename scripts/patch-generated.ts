@@ -71,3 +71,20 @@ patch(
     ),
   'annotated validator callbacks as (data: unknown)',
 );
+
+// Pass 3 — widen v.optional to v.nullish in response validators.
+//
+// openapi-ts emits `v.optional(...)` for non-required fields, which
+// accepts `undefined` but rejects `null`. The Elixir/Phoenix API
+// serialises absent values as JSON `null`, so every `v.optional`
+// inside a response schema must become `v.nullish` (accepts both
+// undefined and null). This is the root cause of the discriminated-
+// union validation failures on tool body types — one `null` field
+// inside a branch causes that branch to fail, and v.union reports
+// the *first* branch's error instead.
+patch(
+  'src/generated/valibot.gen.ts',
+  (s) => s.replace(/v\.optional\(/g, 'v.nullish('),
+  'widened v.optional to v.nullish for null-returning API fields',
+);
+
