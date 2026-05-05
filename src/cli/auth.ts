@@ -83,6 +83,7 @@ export function register(program: Command): void {
           tenant_slug: tenant,
           email,
         });
+        clearProfileCreds(profile);
         writeProfileCreds(profile, {
           session_token: session.sessionToken,
           expires_at: session.expiresAt ?? '',
