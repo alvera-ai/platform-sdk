@@ -19,8 +19,9 @@ const INDUSTRY: Industry = 'healthcare'
 let bootstrap: BootstrapState
 let stdWorkflow: StandardWorkflowState | null
 let cliOpts: { sessionToken: string; tenant: string }
+let firstWelId: string | null = null
 
-beforeAll(() => {
+beforeAll(async () => {
   bootstrap = requireSpec(INDUSTRY, 'bootstrap')
   stdWorkflow = loadSpec(INDUSTRY, 'standard-workflow')
 
@@ -30,6 +31,16 @@ beforeAll(() => {
   cliOpts = {
     sessionToken: bootstrap.sarahSessionToken,
     tenant: bootstrap.tenantSlug,
+  }
+
+  if (stdWorkflow?.workflowSlug) {
+    const logs = await cliJson(
+      ['workflows', 'workflow-logs', stdWorkflow.workflowSlug],
+      cliOpts,
+    ) as { data: { id: string }[] }
+    if (logs.data?.length > 0) {
+      firstWelId = logs.data[0].id
+    }
   }
 })
 
@@ -47,23 +58,23 @@ describe('CLI workflows', () => {
     const data = await cliJson(
       ['workflows', 'get', bootstrap.datalakeSlug!, stdWorkflow.workflowId],
       cliOpts,
-    ) as { data: { id: string } }
-    expect(data.data.id).toBe(stdWorkflow.workflowId)
+    ) as Record<string, unknown>
+    expect(data.id).toBe(stdWorkflow.workflowId)
   })
 
   describe('workflow-log with --data-access-mode', () => {
     it('regulated mode returns log data', async () => {
-      if (!stdWorkflow?.workflowSlug || !stdWorkflow?.lastWorkflowRunLogId) return
+      if (!stdWorkflow?.workflowSlug || !firstWelId) return
       const data = await cliJson(
         [
           'workflows', 'workflow-log',
           stdWorkflow.workflowSlug,
-          stdWorkflow.lastWorkflowRunLogId,
+          firstWelId,
           '--data-access-mode', 'regulated',
         ],
         cliOpts,
-      ) as { data: { id: string } }
-      expect(data.data.id).toBe(stdWorkflow.lastWorkflowRunLogId)
+      ) as Record<string, unknown>
+      expect(data.id).toBe(firstWelId)
     })
   })
 
@@ -77,8 +88,8 @@ describe('CLI workflows', () => {
           stdWorkflow.lastWorkflowRunLogId,
         ],
         cliOpts,
-      ) as { data: { status: string } }
-      expect(data.data.status).toBeTruthy()
+      ) as Record<string, unknown>
+      expect(data.status).toBeTruthy()
     })
   })
 
@@ -90,8 +101,8 @@ describe('CLI workflows', () => {
       const data = await cliJson(
         ['datalakes', 'download-link', bootstrap.datalakeSlug!, bucket, key],
         cliOpts,
-      ) as { data: { url: string } }
-      expect(data.data.url).toMatch(/^https?:\/\//)
+      ) as Record<string, unknown>
+      expect(data.url).toMatch(/^https?:\/\//)
     })
   })
 })

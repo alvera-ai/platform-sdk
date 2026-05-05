@@ -8,7 +8,6 @@ import { describe, beforeAll, expect, it } from 'vitest'
 import { cliJson } from '../../src/cli-runner'
 import {
   type BootstrapState,
-  type DataSourcesState,
   type ToolsState,
   type Industry,
   requireSpec,
@@ -18,13 +17,11 @@ import {
 const INDUSTRY: Industry = 'healthcare'
 
 let bootstrap: BootstrapState
-let dataSources: DataSourcesState | null
 let tools: ToolsState | null
 let cliOpts: { sessionToken: string; tenant: string }
 
 beforeAll(() => {
   bootstrap = requireSpec(INDUSTRY, 'bootstrap')
-  dataSources = loadSpec(INDUSTRY, 'data-sources')
   tools = loadSpec(INDUSTRY, 'tools')
 
   if (!bootstrap.sarahSessionToken || !bootstrap.tenantSlug) {
@@ -48,8 +45,8 @@ describe('CLI resources', () => {
       const data = await cliJson(
         ['datalakes', 'get', bootstrap.datalakeId!],
         cliOpts,
-      ) as { data: { id: string } }
-      expect(data.data.id).toBe(bootstrap.datalakeId)
+      ) as Record<string, unknown>
+      expect(data.id).toBe(bootstrap.datalakeId)
     })
   })
 
@@ -74,8 +71,8 @@ describe('CLI resources', () => {
       const data = await cliJson(
         ['tools', 'get', tools.manualUploadToolId],
         cliOpts,
-      ) as { data: { id: string } }
-      expect(data.data.id).toBe(tools.manualUploadToolId)
+      ) as Record<string, unknown>
+      expect(data.id).toBe(tools.manualUploadToolId)
     })
   })
 
@@ -94,7 +91,7 @@ describe('CLI resources', () => {
       const data = await cliJson(
         ['datasets', 'search', 'patient', '--data-access-mode', 'unregulated'],
         cliOpts,
-      ) as { data: unknown }
+      ) as Record<string, unknown>
       expect(data).toHaveProperty('data')
     })
 
@@ -102,7 +99,7 @@ describe('CLI resources', () => {
       const data = await cliJson(
         ['datasets', 'search', 'patient', '--data-access-mode', 'regulated'],
         cliOpts,
-      ) as { data: unknown }
+      ) as Record<string, unknown>
       expect(data).toHaveProperty('data')
     })
   })

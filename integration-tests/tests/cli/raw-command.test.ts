@@ -7,6 +7,7 @@ import { describe, beforeAll, expect, it } from 'vitest'
 import { runCli, cliJson } from '../../src/cli-runner'
 import {
   type BootstrapState,
+  type DataSourcesState,
   type ToolsState,
   type Industry,
   requireSpec,
@@ -16,11 +17,13 @@ import {
 const INDUSTRY: Industry = 'healthcare'
 
 let bootstrap: BootstrapState
+let dataSources: DataSourcesState | null
 let tools: ToolsState | null
 let cliOpts: { sessionToken: string; tenant: string }
 
 beforeAll(() => {
   bootstrap = requireSpec(INDUSTRY, 'bootstrap')
+  dataSources = loadSpec(INDUSTRY, 'data-sources')
   tools = loadSpec(INDUSTRY, 'tools')
   if (!bootstrap.sarahSessionToken || !bootstrap.tenantSlug) {
     throw new Error('bootstrap state incomplete')
@@ -46,8 +49,8 @@ describe('CLI raw command', () => {
   it('GET tool by id via raw matches SDK get', async () => {
     if (!tools?.manualUploadToolId) return
     const path = `/api/v1/tenants/${bootstrap.tenantSlug}/tools/${tools.manualUploadToolId}`
-    const data = await cliJson(['raw', 'GET', path], cliOpts) as { data: { id: string } }
-    expect(data.data.id).toBe(tools.manualUploadToolId)
+    const data = await cliJson(['raw', 'GET', path], cliOpts) as Record<string, unknown>
+    expect(data.id).toBe(tools.manualUploadToolId)
   })
 
   it('non-2xx exits non-zero with error in stderr', async () => {
@@ -66,40 +69,52 @@ describe('CLI raw command', () => {
   })
 
   it('POST with --body sends JSON payload', async () => {
-    const path = `/api/v1/tenants/${bootstrap.tenantSlug}/datalakes/${bootstrap.datalakeSlug}/ai-agents`
+    if (!dataSources?.dataSourceId || !bootstrap.datalakeId) return
+    const path = `/api/v1/tenants/${bootstrap.tenantSlug}/tools`
     const body = JSON.stringify({
-      name: 'cli-raw-test-agent',
-      model: 'gpt-4o',
-      prompt: 'test prompt for CLI raw command integration test',
+      name: 'cli-raw-test-tool',
+      description: 'Ephemeral tool for CLI raw POST test',
+      intent: 'data_exchange',
+      status: 'active',
+      datalake_id: bootstrap.datalakeId,
+      data_source_id: dataSources.dataSourceId,
+      body: { tool_body_type: 'manual_upload' },
     })
     const data = await cliJson(
       ['raw', 'POST', path, '--body', body],
       cliOpts,
-    ) as { data: { id: string; name: string } }
-    expect(data.data.id).toBeTruthy()
-    expect(data.data.name).toBe('cli-raw-test-agent')
+    ) as Record<string, unknown>
+    expect(data.id).toBeTruthy()
+    expect(data.name).toBe('cli-raw-test-tool')
 
-    // Cleanup: delete the created agent
-    const deletePath = `/api/v1/tenants/${bootstrap.tenantSlug}/datalakes/${bootstrap.datalakeSlug}/ai-agents/${data.data.id}`
-    await cliJson(['raw', 'DELETE', deletePath], cliOpts)
+    // Cleanup: delete the created tool (DELETE returns empty body)
+    const deletePath = `/api/v1/tenants/${bootstrap.tenantSlug}/tools/${data.id}`
+    const del = await runCli(['raw', 'DELETE', deletePath], cliOpts)
+    expect(del.exitCode).toBe(0)
   })
 
   it('POST with --body-file - reads from stdin', async () => {
-    const path = `/api/v1/tenants/${bootstrap.tenantSlug}/datalakes/${bootstrap.datalakeSlug}/ai-agents`
+    if (!dataSources?.dataSourceId || !bootstrap.datalakeId) return
+    const path = `/api/v1/tenants/${bootstrap.tenantSlug}/tools`
     const body = JSON.stringify({
-      name: 'cli-raw-stdin-agent',
-      model: 'gpt-4o',
-      prompt: 'test prompt via stdin',
+      name: 'cli-raw-stdin-tool',
+      description: 'Ephemeral tool for CLI raw stdin test',
+      intent: 'data_exchange',
+      status: 'active',
+      datalake_id: bootstrap.datalakeId,
+      data_source_id: dataSources.dataSourceId,
+      body: { tool_body_type: 'manual_upload' },
     })
     const data = await cliJson(
       ['raw', 'POST', path, '--body-file', '-'],
       { ...cliOpts, stdin: body },
-    ) as { data: { id: string; name: string } }
-    expect(data.data.id).toBeTruthy()
-    expect(data.data.name).toBe('cli-raw-stdin-agent')
+    ) as Record<string, unknown>
+    expect(data.id).toBeTruthy()
+    expect(data.name).toBe('cli-raw-stdin-tool')
 
-    // Cleanup
-    const deletePath = `/api/v1/tenants/${bootstrap.tenantSlug}/datalakes/${bootstrap.datalakeSlug}/ai-agents/${data.data.id}`
-    await cliJson(['raw', 'DELETE', deletePath], cliOpts)
+    // Cleanup (DELETE returns empty body)
+    const deletePath = `/api/v1/tenants/${bootstrap.tenantSlug}/tools/${data.id}`
+    const del = await runCli(['raw', 'DELETE', deletePath], cliOpts)
+    expect(del.exitCode).toBe(0)
   })
 })
